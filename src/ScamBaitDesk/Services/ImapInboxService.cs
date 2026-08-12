@@ -29,7 +29,15 @@ public sealed class ImapInboxService
                 item.Subject ?? "(No subject)",
                 item.From.Mailboxes.FirstOrDefault()?.Address ?? item.From.ToString(),
                 item.Date,
-                body.Length > 30_000 ? body[..30_000] : body));
+                body.Length > 30_000 ? body[..30_000] : body)
+            {
+                Headers = item.Headers
+                    .GroupBy(header => header.Field, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.Select(header => header.Value).ToList(),
+                        StringComparer.OrdinalIgnoreCase)
+            });
         }
 
         await client.DisconnectAsync(true, cancellationToken);

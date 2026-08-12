@@ -11,6 +11,7 @@ public sealed record InboxMessage(
 {
     public string ReceivedDisplay => ReceivedAt.LocalDateTime.ToString("g");
     public string ConversationKey => ConversationService.GetKey(this);
+    public Dictionary<string, List<string>> Headers { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed record RiskSignal(string Label, string Detail, int Weight);
@@ -25,6 +26,20 @@ public enum CaseStatus { New, Investigating, AwaitingVerification, Reported, Clo
 public sealed record CaseEvent(DateTimeOffset At, string Kind, string Detail)
 {
     public string Display => $"{At.LocalDateTime:g} · {Kind} — {Detail}";
+}
+
+public sealed record ForensicFinding(string Label, string Value, string Assessment)
+{
+    public string Display => $"{Label}: {Value}";
+}
+
+public sealed record EmailForensicsReport(
+    string Verdict,
+    IReadOnlyList<ForensicFinding> Findings,
+    IReadOnlyList<string> Warnings,
+    string RawHeaders)
+{
+    public string Summary => $"{Verdict} · {Warnings.Count} warning(s)";
 }
 
 public sealed class CaseRecord

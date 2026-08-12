@@ -11,6 +11,7 @@ public sealed partial class MainWindow : Window
     private readonly ScamAnalysisService _analyzer = new();
     private readonly SettingsService _settings = new();
     private readonly CaseRepository _cases = new();
+    private readonly EmailForensicsService _forensics = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -22,6 +23,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
         StatusBox.SelectedIndex = 0;
+        ShowForensics(_selected);
         _ = LoadCasesAsync();
     }
 
@@ -78,6 +80,7 @@ public sealed partial class MainWindow : Window
         _currentCase = null;
         TimelineList.ItemsSource = null;
         StatusBox.SelectedIndex = 0;
+        ShowForensics(_selected);
     }
 
     private async void SaveCase_Click(object sender, RoutedEventArgs e)
@@ -117,6 +120,20 @@ public sealed partial class MainWindow : Window
         SignalList.ItemsSource = _analysis?.Signals;
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         StatusBox.SelectedIndex = IndexFromStatus(_currentCase.Status);
+        ShowForensics(_selected);
+    }
+
+    private void ShowForensics(InboxMessage? message)
+    {
+        if (message is null) { ForensicsBar.IsOpen = false; ForensicsList.ItemsSource = null; ForensicsWarnings.ItemsSource = null; RawHeadersBox.Text = string.Empty; return; }
+        var report = _forensics.Analyze(message);
+        ForensicsBar.IsOpen = true;
+        ForensicsBar.Title = report.Summary;
+        ForensicsBar.Message = "Header results are evidence indicators, not proof that a sender is safe or malicious.";
+        ForensicsBar.Severity = report.Warnings.Count == 0 ? InfoBarSeverity.Success : report.Warnings.Count <= 2 ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
+        ForensicsList.ItemsSource = report.Findings;
+        ForensicsWarnings.ItemsSource = report.Warnings;
+        RawHeadersBox.Text = report.RawHeaders;
     }
 
     private async void StatusBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

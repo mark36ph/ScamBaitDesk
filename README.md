@@ -15,6 +15,9 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Maintains an audit timeline for case creation, saves, status changes, and approved lookups.
 - Searches inbox messages and cases from one field.
 - Opens a sender-domain reputation lookup only after showing exactly what will be disclosed.
+- Preserves relevant message headers and explains SPF, DKIM, and DMARC results locally.
+- Compares From, Reply-To, and Return-Path domains and highlights identity mismatches.
+- Shows the probable originating IP, Message-ID, warnings, and expandable raw headers.
 
 ## Requirements
 

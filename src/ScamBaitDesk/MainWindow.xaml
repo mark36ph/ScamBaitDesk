@@ -93,6 +93,20 @@
                         </ListView>
                     </StackPanel>
                 </TabViewItem>
+                <TabViewItem Header="Header forensics" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar x:Name="ForensicsBar" IsOpen="False" IsClosable="False"/>
+                        <TextBlock Text="Identity and authentication" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ItemsControl x:Name="ForensicsList">
+                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="local:ForensicFinding">
+                                <Grid Margin="0,5" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{x:Bind Value}" TextWrapping="Wrap"/><TextBlock Grid.Column="2" Text="{x:Bind Assessment}" Opacity="0.7"/></Grid>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Warnings" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ItemsControl x:Name="ForensicsWarnings"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,4" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <Expander Header="Raw headers"><TextBox x:Name="RawHeadersBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Consolas" MinHeight="220"/></Expander>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
             </TabView>
         </Grid>
     </Grid>
