@@ -12,6 +12,7 @@ public sealed partial class MainWindow : Window
     private readonly SettingsService _settings = new();
     private readonly CaseRepository _cases = new();
     private readonly EmailForensicsService _forensics = new();
+    private readonly IndicatorExtractionService _indicatorExtractor = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -24,6 +25,7 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
+        ShowIndicators([]);
         _ = LoadCasesAsync();
     }
 
@@ -81,6 +83,32 @@ public sealed partial class MainWindow : Window
         TimelineList.ItemsSource = null;
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
+        ShowIndicators(ConversationService.FindConversation(_selected, _messages));
+    }
+
+    private void ShowIndicators(IEnumerable<InboxMessage> messages) =>
+        IndicatorList.ItemsSource = _indicatorExtractor.Extract(messages);
+
+    private void CopyIndicator_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not IndicatorRecord indicator) return;
+        var package = new DataPackage();
+        package.SetText(indicator.Value);
+        Clipboard.SetContent(package);
+    }
+
+    private async void LookupIndicator_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not IndicatorRecord indicator || !indicator.SupportsLookup) return;
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "External reputation lookup", Content = $"Open VirusTotal and disclose only this {indicator.TypeDisplay.ToLowerInvariant()}?\n\n{indicator.Value}\n\nNo message text, notes, or other indicators will be sent.", PrimaryButtonText = "Open lookup", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var route = indicator.Type switch { IndicatorType.Domain => "domain", IndicatorType.IpAddress => "ip-address", _ => "search" };
+        await Windows.System.Launcher.LaunchUriAsync(new Uri($"https://www.virustotal.com/gui/{route}/{Uri.EscapeDataString(indicator.Value)}"));
+        if (_currentCase is null) return;
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Indicator lookup", $"User approved {indicator.TypeDisplay} lookup for {indicator.Value}."));
+        await _cases.SaveAsync(_currentCase);
+        TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
     }
 
     private async void SaveCase_Click(object sender, RoutedEventArgs e)
@@ -121,6 +149,7 @@ public sealed partial class MainWindow : Window
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         StatusBox.SelectedIndex = IndexFromStatus(_currentCase.Status);
         ShowForensics(_selected);
+        ShowIndicators(_currentCase.Messages);
     }
 
     private void ShowForensics(InboxMessage? message)

@@ -42,6 +42,27 @@ public sealed record EmailForensicsReport(
     public string Summary => $"{Verdict} · {Warnings.Count} warning(s)";
 }
 
+public enum IndicatorType { Url, Domain, Email, IpAddress, Phone, CryptoWallet, PaymentHandle, AccountNumber }
+
+public sealed record IndicatorRecord(
+    IndicatorType Type,
+    string Value,
+    int Occurrences,
+    IReadOnlyList<string> Sources)
+{
+    public string TypeDisplay => Type switch
+    {
+        IndicatorType.IpAddress => "IP address",
+        IndicatorType.CryptoWallet => "Crypto wallet",
+        IndicatorType.PaymentHandle => "Payment handle",
+        IndicatorType.AccountNumber => "Account-like number",
+        _ => Type.ToString()
+    };
+    public string OccurrenceDisplay => $"{Occurrences} occurrence(s) · {Sources.Count} message(s)";
+    public string PrimarySource => Sources.FirstOrDefault() ?? "Unknown source";
+    public bool SupportsLookup => Type is IndicatorType.Url or IndicatorType.Domain or IndicatorType.IpAddress;
+}
+
 public sealed class CaseRecord
 {
     public Guid Id { get; set; } = Guid.NewGuid();

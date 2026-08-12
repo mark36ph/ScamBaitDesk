@@ -18,6 +18,9 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Preserves relevant message headers and explains SPF, DKIM, and DMARC results locally.
 - Compares From, Reply-To, and Return-Path domains and highlights identity mismatches.
 - Shows the probable originating IP, Message-ID, warnings, and expandable raw headers.
+- Extracts URLs, domains, email addresses, IPs, phone numbers, crypto wallets, payment handles, and account-like numbers locally.
+- Deduplicates indicators across a conversation while retaining occurrence counts and source messages.
+- Keeps URLs inert and requires explicit approval before opening a domain, IP, or URL reputation lookup.
 
 ## Requirements
 
