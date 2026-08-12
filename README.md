@@ -10,6 +10,11 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Redacts likely email addresses, phone numbers, URLs, and long account-like numbers.
 - Generates a neutral draft that asks for verifiable details without disclosing personal data.
 - Saves cases and evidence notes as local JSON under `%LOCALAPPDATA%\ScamBaitDesk`.
+- Groups related inbox messages into chronological case conversations.
+- Tracks New, Investigating, Awaiting verification, Reported, and Closed states.
+- Maintains an audit timeline for case creation, saves, status changes, and approved lookups.
+- Searches inbox messages and cases from one field.
+- Opens a sender-domain reputation lookup only after showing exactly what will be disclosed.
 
 ## Requirements
 

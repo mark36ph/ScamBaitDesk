@@ -13,11 +13,22 @@ public sealed partial class MainWindow : Window
     private readonly CaseRepository _cases = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
+    private CaseRecord? _currentCase;
+    private List<InboxMessage> _messages = [];
+    private List<CaseRecord> _caseRecords = [];
 
     public MainWindow()
     {
         InitializeComponent();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        StatusBox.SelectedIndex = 0;
+        _ = LoadCasesAsync();
+    }
+
+    private async Task LoadCasesAsync()
+    {
+        _caseRecords = (await _cases.LoadAsync()).ToList();
+        ApplyFilter();
     }
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
@@ -28,7 +39,8 @@ public sealed partial class MainWindow : Window
             if (settings is null) { await ShowMessage("Set up the dedicated inbox first."); return; }
             var password = _settings.LoadPassword(settings.Username);
             if (string.IsNullOrWhiteSpace(password)) { await ShowMessage("The inbox credential is missing. Open Inbox settings."); return; }
-            MessageList.ItemsSource = await _inbox.FetchAsync(settings, password);
+            _messages = (await _inbox.FetchAsync(settings, password)).ToList();
+            ApplyFilter();
         }
         catch (Exception ex) { await ShowMessage($"Inbox sync failed: {ex.Message}"); }
     }
@@ -63,14 +75,96 @@ public sealed partial class MainWindow : Window
         MessageBody.Text = _analysis.RedactedText;
         DraftBox.Text = ScamAnalysisService.CreateSafeDraft(_selected);
         NotesBox.Text = string.Empty;
+        _currentCase = null;
+        TimelineList.ItemsSource = null;
+        StatusBox.SelectedIndex = 0;
     }
 
     private async void SaveCase_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null || _analysis is null) { await ShowMessage("Select a message before saving a case."); return; }
-        await _cases.SaveAsync(new CaseRecord(Guid.NewGuid(), DateTimeOffset.Now, _selected, _analysis, DraftBox.Text, NotesBox.Text));
+        var now = DateTimeOffset.Now;
+        _currentCase ??= new CaseRecord
+        {
+            Title = _selected.Subject,
+            CreatedAt = now,
+            Messages = ConversationService.FindConversation(_selected, _messages).ToList(),
+            Timeline = [new CaseEvent(now, "Created", "Case created from the dedicated inbox.")]
+        };
+        _currentCase.Analysis = _analysis;
+        _currentCase.DraftReply = DraftBox.Text;
+        _currentCase.Notes = NotesBox.Text;
+        _currentCase.Status = StatusFromIndex(StatusBox.SelectedIndex);
+        _currentCase.UpdatedAt = now;
+        _currentCase.Timeline.Add(new CaseEvent(now, "Saved", $"Case saved with {_currentCase.Messages.Count} message(s)."));
+        await _cases.SaveAsync(_currentCase);
+        await LoadCasesAsync();
+        TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         await ShowMessage("Case saved locally.");
     }
+
+    private void CaseList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _currentCase = CaseList.SelectedItem as CaseRecord;
+        if (_currentCase is null) return;
+        _selected = _currentCase.Messages.OrderByDescending(message => message.ReceivedAt).FirstOrDefault();
+        _analysis = _currentCase.Analysis;
+        SubjectText.Text = _currentCase.Title;
+        SenderText.Text = $"{_currentCase.Messages.Count} message(s) · created {_currentCase.CreatedAt.LocalDateTime:g}";
+        MessageBody.Text = string.Join("\n\n──────────\n\n", _currentCase.Messages.OrderBy(message => message.ReceivedAt).Select(message => $"{message.ReceivedDisplay} · {message.Sender}\n{ScamAnalysisService.Redact(message.Body)}"));
+        DraftBox.Text = _currentCase.DraftReply;
+        NotesBox.Text = _currentCase.Notes;
+        SignalList.ItemsSource = _analysis?.Signals;
+        TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+        StatusBox.SelectedIndex = IndexFromStatus(_currentCase.Status);
+    }
+
+    private async void StatusBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_currentCase is null || StatusBox.SelectedIndex < 0) return;
+        var next = StatusFromIndex(StatusBox.SelectedIndex);
+        if (next == _currentCase.Status) return;
+        _currentCase.Status = next;
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Status", $"Changed to {_currentCase.StatusDisplay}."));
+        await _cases.SaveAsync(_currentCase);
+        await LoadCasesAsync();
+        TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+    }
+
+    private async void Reputation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || !TryGetDomain(_selected.Sender, out var domain)) { await ShowMessage("No sender domain was found."); return; }
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "External reputation lookup", Content = $"Open VirusTotal and disclose only this domain?\n\n{domain}\n\nNo message text or case notes will be sent.", PrimaryButtonText = "Open lookup", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await Windows.System.Launcher.LaunchUriAsync(new Uri($"https://www.virustotal.com/gui/domain/{Uri.EscapeDataString(domain)}"));
+        if (_currentCase is not null)
+        {
+            _currentCase.UpdatedAt = DateTimeOffset.Now;
+            _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reputation lookup", $"User approved lookup for {domain}."));
+            await _cases.SaveAsync(_currentCase);
+            TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+        }
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        var query = SearchBox?.Text?.Trim() ?? string.Empty;
+        MessageList.ItemsSource = _messages.Where(message => string.IsNullOrEmpty(query) || message.Subject.Contains(query, StringComparison.OrdinalIgnoreCase) || message.Sender.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        CaseList.ItemsSource = _caseRecords.Where(record => string.IsNullOrEmpty(query) || record.Title.Contains(query, StringComparison.OrdinalIgnoreCase) || record.Notes.Contains(query, StringComparison.OrdinalIgnoreCase) || record.StatusDisplay.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private static bool TryGetDomain(string sender, out string domain)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(sender, @"@([A-Z0-9.-]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        domain = match.Success ? match.Groups[1].Value.TrimEnd('.').ToLowerInvariant() : string.Empty;
+        return domain.Length > 3;
+    }
+
+    private static CaseStatus StatusFromIndex(int index) => index switch { 1 => CaseStatus.Investigating, 2 => CaseStatus.AwaitingVerification, 3 => CaseStatus.Reported, 4 => CaseStatus.Closed, _ => CaseStatus.New };
+    private static int IndexFromStatus(CaseStatus status) => status switch { CaseStatus.Investigating => 1, CaseStatus.AwaitingVerification => 2, CaseStatus.Reported => 3, CaseStatus.Closed => 4, _ => 0 };
 
     private void CopyDraft_Click(object sender, RoutedEventArgs e)
     {

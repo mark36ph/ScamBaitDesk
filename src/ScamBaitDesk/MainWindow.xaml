@@ -25,8 +25,10 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <Grid RowSpacing="10">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Text="Dedicated inbox" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                <ListView x:Name="MessageList" Grid.Row="1" SelectionChanged="MessageList_SelectionChanged">
+                <TextBox x:Name="SearchBox" Header="Search" PlaceholderText="Messages and cases" TextChanged="SearchBox_TextChanged"/>
+                <TabView Grid.Row="1">
+                  <TabViewItem Header="Inbox" IsClosable="False">
+                   <ListView x:Name="MessageList" SelectionChanged="MessageList_SelectionChanged">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:InboxMessage">
                             <StackPanel Padding="4" Spacing="3">
@@ -36,7 +38,16 @@
                             </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>
-                </ListView>
+                   </ListView>
+                  </TabViewItem>
+                  <TabViewItem Header="Cases" IsClosable="False">
+                   <ListView x:Name="CaseList" SelectionChanged="CaseList_SelectionChanged">
+                    <ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord">
+                     <StackPanel Padding="4" Spacing="3"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{x:Bind Summary}" FontSize="12" TextWrapping="Wrap" Opacity="0.65"/></StackPanel>
+                    </DataTemplate></ListView.ItemTemplate>
+                   </ListView>
+                  </TabViewItem>
+                </TabView>
             </Grid>
 
             <TabView Grid.Column="1">
@@ -44,6 +55,12 @@
                     <ScrollViewer><StackPanel Padding="16" Spacing="14">
                         <TextBlock x:Name="SubjectText" Text="Select a message" Style="{ThemeResource TitleTextBlockStyle}"/>
                         <TextBlock x:Name="SenderText" Opacity="0.7"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ComboBox x:Name="StatusBox" Header="Case status" Width="210" SelectionChanged="StatusBox_SelectionChanged">
+                                <x:String>New</x:String><x:String>Investigating</x:String><x:String>Awaiting verification</x:String><x:String>Reported</x:String><x:String>Closed</x:String>
+                            </ComboBox>
+                            <Button Content="Check sender domain reputation" Click="Reputation_Click" VerticalAlignment="Bottom"/>
+                        </StackPanel>
                         <InfoBar x:Name="RiskBar" IsOpen="False" IsClosable="False"/>
                         <TextBlock Text="Risk signals" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                         <ItemsControl x:Name="SignalList">
@@ -66,6 +83,14 @@
                     <StackPanel Padding="16" Spacing="12">
                         <TextBlock Text="Record observations, verification steps, and reporting references. Do not store passwords or security codes." TextWrapping="Wrap"/>
                         <TextBox x:Name="NotesBox" Header="Case notes" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="300"/>
+                    </StackPanel>
+                </TabViewItem>
+                <TabViewItem Header="Timeline" IsClosable="False">
+                    <StackPanel Padding="16" Spacing="12">
+                        <TextBlock Text="Case activity" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="TimelineList">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="local:CaseEvent"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate>
+                        </ListView>
                     </StackPanel>
                 </TabViewItem>
             </TabView>
