@@ -16,7 +16,7 @@
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>
                     <TextBlock Text="ScamBait Desk" Style="{ThemeResource TitleTextBlockStyle}"/>
                     <Border Background="{ThemeResource SystemFillColorCautionBackgroundBrush}" CornerRadius="12" Padding="10,3">
-                        <TextBlock Text="READ-ONLY INBOX · DRAFTS ONLY" FontSize="11" FontWeight="SemiBold"/>
+                        <TextBlock Text="CONTROLLED ENGAGEMENT · MANUAL SEND" FontSize="11" FontWeight="SemiBold"/>
                     </Border>
                 </StackPanel>
             </CommandBar.Content>
@@ -74,11 +74,23 @@
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
                 <TabViewItem Header="Reply draft" IsClosable="False">
-                    <StackPanel Padding="16" Spacing="12">
-                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="No sending capability" Message="Verify details through an independently found channel. Copy this draft only if your test process permits it."/>
-                        <TextBox x:Name="DraftBox" Header="Draft" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="300"/>
-                        <Button Content="Copy draft" Click="CopyDraft_Click" HorizontalAlignment="Left"/>
-                    </StackPanel>
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Manual engagement mode" Message="Use only a dedicated bait account and fictional persona. Never send secrets, real personal details, attachments, tracking links, threats, or claims of authority."/>
+                        <TextBlock x:Name="RecipientText" Text="Select a message to lock the recipient" FontWeight="SemiBold"/>
+                        <TextBox x:Name="DraftBox" Header="Plain-text reply" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="240" TextChanged="DraftBox_TextChanged"/>
+                        <InfoBar x:Name="PrivacyBar" IsOpen="True" IsClosable="False" Title="Privacy guard"/>
+                        <ItemsControl x:Name="PrivacyFindings">
+                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="local:PrivacyFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Copy draft" Click="CopyDraft_Click"/>
+                            <Button x:Name="SendButton" Content="Review and send manually" Click="SendReply_Click" IsEnabled="False"/>
+                        </StackPanel>
+                        <TextBlock Text="Outbound audit log" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,10,0,0"/>
+                        <ListView x:Name="OutboundList" MaxHeight="180">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="local:OutboundMessageRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel></ScrollViewer>
                 </TabViewItem>
                 <TabViewItem Header="Evidence notes" IsClosable="False">
                     <StackPanel Padding="16" Spacing="12">

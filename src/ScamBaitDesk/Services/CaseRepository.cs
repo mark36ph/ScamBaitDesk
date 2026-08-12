@@ -43,7 +43,11 @@ public sealed class CaseRepository
                 if (record is not null) await SaveAsync(record);
             }
             else record = JsonSerializer.Deserialize<CaseRecord>(json);
-            if (record is not null) records.Add(record);
+            if (record is not null)
+            {
+                record.OutboundMessages ??= [];
+                records.Add(record);
+            }
         }
         return records.OrderByDescending(record => record.UpdatedAt).ToList();
     }

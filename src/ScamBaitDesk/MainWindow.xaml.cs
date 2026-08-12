@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ScamBaitDesk.Services;
 using Windows.ApplicationModel.DataTransfer;
+using MimeKit;
 
 namespace ScamBaitDesk;
 
@@ -14,6 +15,8 @@ public sealed partial class MainWindow : Window
     private readonly EmailForensicsService _forensics = new();
     private readonly IndicatorExtractionService _indicatorExtractor = new();
     private readonly EvidenceExportService _evidenceExporter = new();
+    private readonly EngagementSafetyService _engagementSafety = new();
+    private readonly SmtpEngagementService _smtp = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -27,6 +30,7 @@ public sealed partial class MainWindow : Window
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
         ShowIndicators([]);
+        ReviewDraft();
         _ = LoadCasesAsync();
     }
 
@@ -57,12 +61,15 @@ public sealed partial class MainWindow : Window
         var port = new NumberBox { Header = "Port", Value = current?.Port ?? 993, Minimum = 1, Maximum = 65535 };
         var user = new TextBox { Header = "Inbox username", Text = current?.Username ?? string.Empty };
         var password = new PasswordBox { Header = "App password" };
+        var smtpHost = new TextBox { Header = "SMTP host", Text = current?.SmtpHost ?? "smtp.gmail.com" };
+        var smtpPort = new NumberBox { Header = "SMTP port", Value = current?.SmtpPort ?? 587, Minimum = 1, Maximum = 65535 };
+        var smtpSsl = new CheckBox { Content = "SMTP uses implicit TLS (usually port 465)", IsChecked = current?.SmtpUseSsl ?? false };
         var panel = new StackPanel { Spacing = 10 };
-        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(user); panel.Children.Add(password);
+        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(smtpHost); panel.Children.Add(smtpPort); panel.Children.Add(smtpSsl); panel.Children.Add(user); panel.Children.Add(password);
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Dedicated test inbox", Content = panel, PrimaryButtonText = "Save", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        if (string.IsNullOrWhiteSpace(host.Text) || string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(password.Password)) { await ShowMessage("Host, username, and app password are required."); return; }
-        await _settings.SaveAsync(new InboxSettings(host.Text.Trim(), (int)port.Value, user.Text.Trim()), password.Password);
+        if (string.IsNullOrWhiteSpace(host.Text) || string.IsNullOrWhiteSpace(smtpHost.Text) || string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(password.Password)) { await ShowMessage("IMAP host, SMTP host, username, and app password are required."); return; }
+        await _settings.SaveAsync(new InboxSettings(host.Text.Trim(), (int)port.Value, user.Text.Trim(), smtpHost.Text.Trim(), (int)smtpPort.Value, smtpSsl.IsChecked == true), password.Password);
     }
 
     private void MessageList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -79,8 +86,10 @@ public sealed partial class MainWindow : Window
         SignalList.ItemsSource = _analysis.Signals;
         MessageBody.Text = _analysis.RedactedText;
         DraftBox.Text = ScamAnalysisService.CreateSafeDraft(_selected);
+        RecipientText.Text = TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
         NotesBox.Text = string.Empty;
         _currentCase = null;
+        OutboundList.ItemsSource = null;
         TimelineList.ItemsSource = null;
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
@@ -175,6 +184,8 @@ public sealed partial class MainWindow : Window
         SenderText.Text = $"{_currentCase.Messages.Count} message(s) · created {_currentCase.CreatedAt.LocalDateTime:g}";
         MessageBody.Text = string.Join("\n\n──────────\n\n", _currentCase.Messages.OrderBy(message => message.ReceivedAt).Select(message => $"{message.ReceivedDisplay} · {message.Sender}\n{ScamAnalysisService.Redact(message.Body)}"));
         DraftBox.Text = _currentCase.DraftReply;
+        RecipientText.Text = _selected is not null && TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
+        OutboundList.ItemsSource = _currentCase.OutboundMessages.OrderByDescending(item => item.SentAt);
         NotesBox.Text = _currentCase.Notes;
         SignalList.ItemsSource = _analysis?.Signals;
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
@@ -248,6 +259,69 @@ public sealed partial class MainWindow : Window
         var package = new DataPackage();
         package.SetText(DraftBox.Text);
         Clipboard.SetContent(package);
+    }
+
+    private void DraftBox_TextChanged(object sender, TextChangedEventArgs e) => ReviewDraft();
+
+    private void ReviewDraft()
+    {
+        if (PrivacyBar is null || DraftBox is null || PrivacyFindings is null || SendButton is null) return;
+        var review = _engagementSafety.Review(DraftBox.Text ?? string.Empty);
+        PrivacyBar.Title = review.CanSend ? "Privacy guard passed" : "Privacy guard blocked sending";
+        PrivacyBar.Message = review.Summary;
+        PrivacyBar.Severity = !review.CanSend ? InfoBarSeverity.Error : review.Findings.Count > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
+        PrivacyFindings.ItemsSource = review.Findings;
+        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null;
+    }
+
+    private async void SendReply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || !TryGetSenderAddress(_selected.Sender, out var recipient)) { await ShowMessage("The selected sender address could not be parsed."); return; }
+        var review = _engagementSafety.Review(DraftBox.Text);
+        if (!review.CanSend) { await ShowMessage("Sending is blocked until all privacy-guard issues are removed."); return; }
+        if (_currentCase is null) { await ShowMessage("Save or open the case before sending so the engagement has an audit trail."); return; }
+
+        var recent = _currentCase.OutboundMessages.Where(item => item.SentAt >= DateTimeOffset.Now.AddHours(-1)).OrderByDescending(item => item.SentAt).ToList();
+        if (recent.Count >= 5) { await ShowMessage("Rate limit reached: no more than five messages per case per hour."); return; }
+        if (recent.FirstOrDefault() is { } last && last.SentAt >= DateTimeOffset.Now.AddMinutes(-2)) { await ShowMessage("Please wait at least two minutes between outbound messages in this case."); return; }
+
+        var dedicated = new CheckBox { Content = new TextBlock { Text = "I confirm this is a dedicated bait account and the persona/details are fictional.", TextWrapping = TextWrapping.Wrap } };
+        var noHarm = new CheckBox { Content = new TextBlock { Text = "I confirm this message contains no threats, authority impersonation, credential collection, tracking, malware, or real secrets.", TextWrapping = TextWrapping.Wrap } };
+        var summary = new TextBlock { Text = $"To: {recipient}\nSubject: Re: {_selected.Subject}\n\nThis sends one plain-text message. Attachments and automatic follow-ups are not supported.", TextWrapping = TextWrapping.Wrap };
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(summary); panel.Children.Add(dedicated); panel.Children.Add(noHarm);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Final manual-send confirmation", Content = panel, PrimaryButtonText = "Send one message", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (dedicated.IsChecked != true || noHarm.IsChecked != true) { await ShowMessage("Both safety confirmations are required. Nothing was sent."); return; }
+
+        try
+        {
+            SendButton.IsEnabled = false;
+            var settings = await _settings.LoadAsync();
+            if (settings is null) { await ShowMessage("Configure the dedicated mail account first."); return; }
+            var password = _settings.LoadPassword(settings.Username);
+            if (string.IsNullOrWhiteSpace(password)) { await ShowMessage("The mail credential is missing. Open Inbox settings."); return; }
+            var subject = _selected.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase) ? _selected.Subject : $"Re: {_selected.Subject}";
+            var messageId = await _smtp.SendAsync(settings, password, recipient, subject, DraftBox.Text);
+            var now = DateTimeOffset.Now;
+            _currentCase.DraftReply = DraftBox.Text;
+            _currentCase.OutboundMessages.Add(new OutboundMessageRecord(now, recipient, subject, ScamAnalysisService.Redact(DraftBox.Text), messageId));
+            _currentCase.UpdatedAt = now;
+            _currentCase.Timeline.Add(new CaseEvent(now, "Manual outbound", $"Sent one plain-text message to {recipient}. Message-ID: {messageId}."));
+            await _cases.SaveAsync(_currentCase);
+            OutboundList.ItemsSource = _currentCase.OutboundMessages.OrderByDescending(item => item.SentAt);
+            TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+            await ShowMessage("One message was sent and recorded in the case audit trail.");
+        }
+        catch (Exception ex) { await ShowMessage($"Nothing was recorded as sent. SMTP failed: {ex.Message}"); }
+        finally { ReviewDraft(); }
+    }
+
+    private static bool TryGetSenderAddress(string sender, out string address)
+    {
+        if (MailboxAddress.TryParse(sender, out var mailbox)) { address = mailbox.Address; return true; }
+        address = string.Empty;
+        return false;
     }
 
     private async Task ShowMessage(string message) => await new ContentDialog

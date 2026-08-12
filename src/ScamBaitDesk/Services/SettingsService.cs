@@ -5,7 +5,8 @@ namespace ScamBaitDesk.Services;
 
 public sealed class SettingsService
 {
-    private const string VaultResource = "ScamBaitDesk.Imap";
+    private const string VaultResource = "ScamBaitDesk.Mail";
+    private const string LegacyVaultResource = "ScamBaitDesk.Imap";
     private readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ScamBaitDesk", "inbox.json");
@@ -21,7 +22,10 @@ public sealed class SettingsService
     {
         try
         {
-            var credential = new PasswordVault().Retrieve(VaultResource, username);
+            var vault = new PasswordVault();
+            PasswordCredential credential;
+            try { credential = vault.Retrieve(VaultResource, username); }
+            catch { credential = vault.Retrieve(LegacyVaultResource, username); }
             credential.RetrievePassword();
             return credential.Password;
         }

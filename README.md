@@ -1,6 +1,6 @@
 # ScamBait Desk
 
-ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test inbox**, assessing suspicious messages, drafting safe replies, and preserving case notes. It never sends mail, opens links, downloads attachments, or embeds remote content.
+ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test inbox**, assessing suspicious messages, conducting controlled manual engagements, and preserving case evidence. It never automates replies, downloads attachments, embeds remote content, or sends attachments.
 
 ## What the first version does
 
@@ -23,6 +23,12 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Keeps URLs inert and requires explicit approval before opening a domain, IP, or URL reputation lookup.
 - Exports a case as a portable ZIP containing a redacted HTML summary, transcripts, headers, notes, timeline, indicators, and case metadata.
 - Generates a SHA-256 manifest for every evidence file and records the manifest hash in the case timeline.
+- Sends a single plain-text SMTP reply only after a privacy review and two explicit safety confirmations.
+- Locks the recipient to the selected message sender; there is no free-form recipient or bulk-send path.
+- Blocks likely passwords, authentication codes, payment-card numbers, bank details, and wallet recovery material.
+- Warns about locations, phone numbers, links, threats, and authority claims before sending.
+- Limits each case to one outbound message every two minutes and five per hour.
+- Stores a redacted outbound audit log and Message-ID in the case and evidence export.
 
 ## Requirements
 
@@ -33,14 +39,14 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 
 1. Open `ScamBaitDesk.sln` in Visual Studio.
 2. Select `x64` and run the `ScamBaitDesk` project.
-3. Open **Inbox settings** and enter the IMAP host, port, username, and app password for a dedicated test account.
+3. Open **Inbox settings** and enter the IMAP and SMTP hosts, ports, username, and app password for a dedicated test account.
 4. Select **Sync inbox**. Messages are fetched with `ReadOnly` folder access.
 
-Common IMAP values: Gmail `imap.gmail.com:993`, Outlook `outlook.office365.com:993`. Use an app-specific password where supported; do not reuse a personal account password.
+Common values: Gmail IMAP `imap.gmail.com:993` and SMTP `smtp.gmail.com:587`; Outlook IMAP `outlook.office365.com:993` and SMTP `smtp.office365.com:587`. Use an app-specific password where supported; do not reuse a personal account password.
 
 ## Safety boundary
 
-Use only accounts and messages you own or are authorized to handle. Do not send malware, collect credentials, impersonate real people, threaten anyone, or attempt access to another system. Treat links and attachments as hostile. The app deliberately has no SMTP/send path.
+Use only a dedicated bait account and messages you own or are authorized to handle. Use fictional persona details that do not resemble a real person. Do not send malware or tracking content, collect credentials, impersonate real people or authorities, threaten anyone, or attempt access to another system. Treat links and attachments as hostile. Outbound sending is deliberately manual, plain-text only, rate-limited, privacy-checked, confirmed twice, and logged.
 
 ## Build from the command line
 

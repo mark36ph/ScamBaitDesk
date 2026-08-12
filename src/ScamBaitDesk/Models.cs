@@ -1,6 +1,12 @@
 namespace ScamBaitDesk;
 
-public sealed record InboxSettings(string Host, int Port, string Username);
+public sealed record InboxSettings(
+    string Host,
+    int Port,
+    string Username,
+    string SmtpHost = "",
+    int SmtpPort = 587,
+    bool SmtpUseSsl = false);
 
 public sealed record InboxMessage(
     string Id,
@@ -26,6 +32,29 @@ public enum CaseStatus { New, Investigating, AwaitingVerification, Reported, Clo
 public sealed record CaseEvent(DateTimeOffset At, string Kind, string Detail)
 {
     public string Display => $"{At.LocalDateTime:g} · {Kind} — {Detail}";
+}
+
+public sealed record OutboundMessageRecord(
+    DateTimeOffset SentAt,
+    string Recipient,
+    string Subject,
+    string RedactedBody,
+    string MessageId)
+{
+    public string Display => $"{SentAt.LocalDateTime:g} · To {Recipient} · {Subject}";
+}
+
+public sealed record PrivacyFinding(string Label, string Detail, bool BlocksSend)
+{
+    public string Display => $"{(BlocksSend ? "BLOCKED" : "Review")} · {Label}: {Detail}";
+}
+
+public sealed record PrivacyReview(IReadOnlyList<PrivacyFinding> Findings)
+{
+    public bool CanSend => Findings.All(finding => !finding.BlocksSend);
+    public string Summary => Findings.Count == 0
+        ? "No obvious personal or high-risk data detected."
+        : $"{Findings.Count} finding(s) · {Findings.Count(finding => finding.BlocksSend)} blocking";
 }
 
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
@@ -75,6 +104,7 @@ public sealed class CaseRecord
     public string DraftReply { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public List<CaseEvent> Timeline { get; set; } = [];
+    public List<OutboundMessageRecord> OutboundMessages { get; set; } = [];
     public string StatusDisplay => Status switch
     {
         CaseStatus.AwaitingVerification => "Awaiting verification",
