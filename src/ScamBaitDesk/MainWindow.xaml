@@ -10,6 +10,7 @@
             <AppBarButton Icon="Sync" Label="Sync inbox" Click="Sync_Click"/>
             <AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/>
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
+            <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>

@@ -21,6 +21,8 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Extracts URLs, domains, email addresses, IPs, phone numbers, crypto wallets, payment handles, and account-like numbers locally.
 - Deduplicates indicators across a conversation while retaining occurrence counts and source messages.
 - Keeps URLs inert and requires explicit approval before opening a domain, IP, or URL reputation lookup.
+- Exports a case as a portable ZIP containing a redacted HTML summary, transcripts, headers, notes, timeline, indicators, and case metadata.
+- Generates a SHA-256 manifest for every evidence file and records the manifest hash in the case timeline.
 
 ## Requirements
 

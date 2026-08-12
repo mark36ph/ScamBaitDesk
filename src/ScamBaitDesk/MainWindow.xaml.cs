@@ -13,6 +13,7 @@ public sealed partial class MainWindow : Window
     private readonly CaseRepository _cases = new();
     private readonly EmailForensicsService _forensics = new();
     private readonly IndicatorExtractionService _indicatorExtractor = new();
+    private readonly EvidenceExportService _evidenceExporter = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -132,6 +133,36 @@ public sealed partial class MainWindow : Window
         await LoadCasesAsync();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         await ShowMessage("Case saved locally.");
+    }
+
+    private async void ExportEvidence_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case before exporting evidence."); return; }
+        var warning = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Export redacted evidence", Content = "The ZIP will contain redacted message bodies, notes, and drafts. Original mail headers are preserved for forensic value and may contain personal data. Store the export securely.", PrimaryButtonText = "Choose destination", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await warning.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var picker = new Windows.Storage.Pickers.FileSavePicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = $"ScamBait-{_currentCase.Id:N}"
+        };
+        picker.FileTypeChoices.Add("ZIP evidence package", new List<string> { ".zip" });
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+
+        try
+        {
+            await using var stream = await file.OpenStreamForWriteAsync();
+            stream.SetLength(0);
+            var result = _evidenceExporter.Export(_currentCase, stream);
+            _currentCase.UpdatedAt = DateTimeOffset.Now;
+            _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Evidence export", $"Created redacted package with {result.EvidenceFileCount} hashed evidence files. Manifest SHA-256: {result.ManifestSha256}."));
+            await _cases.SaveAsync(_currentCase);
+            TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+            await ShowMessage($"Evidence package saved.\n\nManifest SHA-256:\n{result.ManifestSha256}");
+        }
+        catch (Exception ex) { await ShowMessage($"Evidence export failed: {ex.Message}"); }
     }
 
     private void CaseList_SelectionChanged(object sender, SelectionChangedEventArgs e)
