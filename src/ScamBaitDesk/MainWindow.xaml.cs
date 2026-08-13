@@ -205,7 +205,7 @@ public sealed partial class MainWindow : Window
         {
             XamlRoot = Content.XamlRoot,
             Title = "Update ScamBait Desk?",
-            Content = "The app will close. PowerShell will pull main, build and register the update, reopen ScamBait Desk, and then close automatically.",
+            Content = "The app will close while the updater runs silently in the background. It will pull main, build and register the update, then reopen ScamBait Desk automatically.",
             PrimaryButtonText = "Update and close app",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary

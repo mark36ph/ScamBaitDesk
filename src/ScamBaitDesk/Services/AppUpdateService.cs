@@ -24,10 +24,15 @@ public sealed class AppUpdateService
         var start = new ProcessStartInfo
         {
             FileName = "powershell.exe",
-            UseShellExecute = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = Directory.GetParent(Directory.GetParent(scriptPath)!.FullName)!.FullName
         };
         start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-WindowStyle");
+        start.ArgumentList.Add("Hidden");
         start.ArgumentList.Add("-ExecutionPolicy");
         start.ArgumentList.Add("Bypass");
         start.ArgumentList.Add("-File");
