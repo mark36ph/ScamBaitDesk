@@ -62,7 +62,7 @@ function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [int]$max
     $exitCode = $process.ExitCode
     $stdout = if (Test-Path $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
     $stderr = if (Test-Path $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
-    "[$(Get-Date -Format o)] Exit $exitCode: $fileName $($arguments -join ' ')`r`n$stdout$stderr" | Add-Content -LiteralPath $logPath
+    "[$(Get-Date -Format o)] Exit ${exitCode}: $fileName $($arguments -join ' ')`r`n$stdout$stderr" | Add-Content -LiteralPath $logPath
     if ($exitCode -ne 0) {
         $detail = if ([string]::IsNullOrWhiteSpace($stderr)) { $stdout.Trim() } else { $stderr.Trim() }
         throw "$failureMessage$(if ($detail) { "`r`n`r`n$detail" })"
