@@ -27,7 +27,11 @@ public sealed class EvidenceExportService
                 record.UpdatedAt,
                 Risk = record.Analysis?.Summary,
                 MessageCount = record.Messages.Count,
-                OutboundMessageCount = record.OutboundMessages.Count
+                OutboundMessageCount = record.OutboundMessages.Count,
+                record.PersonaId,
+                record.EngagementStopped,
+                record.EngagementStoppedAt,
+                EngagementStopReason = ScamAnalysisService.Redact(record.EngagementStopReason)
             }, JsonOptions));
             Add(archive, hashes, "notes.txt", ScamAnalysisService.Redact(record.Notes));
             Add(archive, hashes, "draft-reply.txt", ScamAnalysisService.Redact(record.DraftReply));

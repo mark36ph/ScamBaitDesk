@@ -57,6 +57,21 @@ public sealed record PrivacyReview(IReadOnlyList<PrivacyFinding> Findings)
         : $"{Findings.Count} finding(s) · {Findings.Count(finding => finding.BlocksSend)} blocking";
 }
 
+public sealed class PersonaProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "Fictional persona";
+    public string TimeZone { get; set; } = "Europe/London";
+    public string Backstory { get; set; } = string.Empty;
+    public string SafeDetails { get; set; } = string.Empty;
+    public string Display => $"{Name} · {TimeZone}";
+}
+
+public sealed record ReplyTemplate(string Name, string ScamType, string Body)
+{
+    public string Display => $"{Name} · {ScamType}";
+}
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";
@@ -105,13 +120,17 @@ public sealed class CaseRecord
     public string Notes { get; set; } = string.Empty;
     public List<CaseEvent> Timeline { get; set; } = [];
     public List<OutboundMessageRecord> OutboundMessages { get; set; } = [];
+    public Guid? PersonaId { get; set; }
+    public bool EngagementStopped { get; set; }
+    public DateTimeOffset? EngagementStoppedAt { get; set; }
+    public string EngagementStopReason { get; set; } = string.Empty;
     public string StatusDisplay => Status switch
     {
         CaseStatus.AwaitingVerification => "Awaiting verification",
         _ => Status.ToString()
     };
     public string UpdatedDisplay => UpdatedAt.LocalDateTime.ToString("g");
-    public string Summary => $"{StatusDisplay} · {Messages.Count} message(s) · updated {UpdatedDisplay}";
+    public string Summary => $"{StatusDisplay}{(EngagementStopped ? " · STOPPED" : string.Empty)} · {Messages.Count} message(s) · updated {UpdatedDisplay}";
 }
 
 public static class ConversationService

@@ -29,6 +29,10 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Warns about locations, phone numbers, links, threats, and authority claims before sending.
 - Limits each case to one outbound message every two minutes and five per hour.
 - Stores a redacted outbound audit log and Message-ID in the case and evidence export.
+- Manages reusable fictional personas locally and assigns one persona to each case.
+- Provides safe reply templates for common scam patterns; applying a template never sends it.
+- Permanently stops outbound engagement per case and records the reason in the audit timeline.
+- Generates editable, redacted report drafts for fraud services, providers, banks, registrars, and law enforcement without submitting data automatically.
 
 ## Requirements
 

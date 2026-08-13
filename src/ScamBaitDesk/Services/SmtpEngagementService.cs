@@ -30,6 +30,6 @@ public sealed class SmtpEngagementService
         await client.AuthenticateAsync(settings.Username, password, cancellationToken);
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(true, cancellationToken);
-        return message.MessageId;
+        return message.MessageId ?? string.Empty;
     }
 }

@@ -46,6 +46,7 @@ public sealed class CaseRepository
             if (record is not null)
             {
                 record.OutboundMessages ??= [];
+                record.EngagementStopReason ??= string.Empty;
                 records.Add(record);
             }
         }

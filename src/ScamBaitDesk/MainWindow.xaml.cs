@@ -17,11 +17,13 @@ public sealed partial class MainWindow : Window
     private readonly EvidenceExportService _evidenceExporter = new();
     private readonly EngagementSafetyService _engagementSafety = new();
     private readonly SmtpEngagementService _smtp = new();
+    private readonly EngagementWorkspaceService _workspace = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
     private List<InboxMessage> _messages = [];
     private List<CaseRecord> _caseRecords = [];
+    private List<PersonaProfile> _personas = [];
 
     public MainWindow()
     {
@@ -31,7 +33,18 @@ public sealed partial class MainWindow : Window
         ShowForensics(_selected);
         ShowIndicators([]);
         ReviewDraft();
+        TemplateBox.ItemsSource = _workspace.Templates;
+        TemplateBox.SelectedIndex = 0;
+        _ = LoadPersonasAsync();
         _ = LoadCasesAsync();
+    }
+
+    private async Task LoadPersonasAsync()
+    {
+        _personas = (await _workspace.LoadPersonasAsync()).ToList();
+        PersonaBox.ItemsSource = _personas;
+        if (_currentCase?.PersonaId is Guid personaId)
+            PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == personaId);
     }
 
     private async Task LoadCasesAsync()
@@ -89,7 +102,9 @@ public sealed partial class MainWindow : Window
         RecipientText.Text = TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
         NotesBox.Text = string.Empty;
         _currentCase = null;
+        PersonaBox.SelectedItem = null;
         OutboundList.ItemsSource = null;
+        ShowStoppedState();
         TimelineList.ItemsSource = null;
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
@@ -136,10 +151,12 @@ public sealed partial class MainWindow : Window
         _currentCase.DraftReply = DraftBox.Text;
         _currentCase.Notes = NotesBox.Text;
         _currentCase.Status = StatusFromIndex(StatusBox.SelectedIndex);
+        _currentCase.PersonaId = (PersonaBox.SelectedItem as PersonaProfile)?.Id;
         _currentCase.UpdatedAt = now;
         _currentCase.Timeline.Add(new CaseEvent(now, "Saved", $"Case saved with {_currentCase.Messages.Count} message(s)."));
         await _cases.SaveAsync(_currentCase);
         await LoadCasesAsync();
+        ShowStoppedState();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         await ShowMessage("Case saved locally.");
     }
@@ -186,6 +203,8 @@ public sealed partial class MainWindow : Window
         DraftBox.Text = _currentCase.DraftReply;
         RecipientText.Text = _selected is not null && TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
         OutboundList.ItemsSource = _currentCase.OutboundMessages.OrderByDescending(item => item.SentAt);
+        PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == _currentCase.PersonaId);
+        ShowStoppedState();
         NotesBox.Text = _currentCase.Notes;
         SignalList.ItemsSource = _analysis?.Signals;
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
@@ -271,7 +290,7 @@ public sealed partial class MainWindow : Window
         PrivacyBar.Message = review.Summary;
         PrivacyBar.Severity = !review.CanSend ? InfoBarSeverity.Error : review.Findings.Count > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
         PrivacyFindings.ItemsSource = review.Findings;
-        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null;
+        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null && _currentCase?.EngagementStopped != true;
     }
 
     private async void SendReply_Click(object sender, RoutedEventArgs e)
@@ -280,6 +299,7 @@ public sealed partial class MainWindow : Window
         var review = _engagementSafety.Review(DraftBox.Text);
         if (!review.CanSend) { await ShowMessage("Sending is blocked until all privacy-guard issues are removed."); return; }
         if (_currentCase is null) { await ShowMessage("Save or open the case before sending so the engagement has an audit trail."); return; }
+        if (_currentCase.EngagementStopped) { await ShowMessage("This engagement was permanently stopped. Sending is disabled for this case."); return; }
 
         var recent = _currentCase.OutboundMessages.Where(item => item.SentAt >= DateTimeOffset.Now.AddHours(-1)).OrderByDescending(item => item.SentAt).ToList();
         if (recent.Count >= 5) { await ShowMessage("Rate limit reached: no more than five messages per case per hour."); return; }
@@ -322,6 +342,89 @@ public sealed partial class MainWindow : Window
         if (MailboxAddress.TryParse(sender, out var mailbox)) { address = mailbox.Address; return true; }
         address = string.Empty;
         return false;
+    }
+
+    private async void Personas_Click(object sender, RoutedEventArgs e)
+    {
+        var existing = new ComboBox { Header = "Edit existing or create new", ItemsSource = _personas, DisplayMemberPath = "Display", PlaceholderText = "New persona" };
+        var name = new TextBox { Header = "Fictional name" };
+        var timezone = new TextBox { Header = "Time zone", Text = "Europe/London" };
+        var backstory = new TextBox { Header = "Fictional backstory", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+        var details = new TextBox { Header = "Safe fictional details", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, PlaceholderText = "Never enter real addresses, phone numbers, credentials, or financial data." };
+        existing.SelectionChanged += (_, _) =>
+        {
+            if (existing.SelectedItem is not PersonaProfile item) return;
+            name.Text = item.Name; timezone.Text = item.TimeZone; backstory.Text = item.Backstory; details.Text = item.SafeDetails;
+        };
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(existing); panel.Children.Add(name); panel.Children.Add(timezone); panel.Children.Add(backstory); panel.Children.Add(details);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Fictional persona manager", Content = panel, PrimaryButtonText = "Save persona", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (string.IsNullOrWhiteSpace(name.Text)) { await ShowMessage("Enter a fictional persona name."); return; }
+        var combined = $"{name.Text}\n{backstory.Text}\n{details.Text}";
+        var review = _engagementSafety.Review(combined);
+        if (!review.CanSend) { await ShowMessage("The persona contains high-risk personal or secret-like data. Remove it before saving."); return; }
+        var persona = existing.SelectedItem as PersonaProfile ?? new PersonaProfile();
+        persona.Name = name.Text.Trim(); persona.TimeZone = timezone.Text.Trim(); persona.Backstory = backstory.Text.Trim(); persona.SafeDetails = details.Text.Trim();
+        await _workspace.SavePersonaAsync(persona);
+        await LoadPersonasAsync();
+        PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == persona.Id);
+    }
+
+    private async void PersonaBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_currentCase is null) return;
+        _currentCase.PersonaId = (PersonaBox.SelectedItem as PersonaProfile)?.Id;
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Persona", PersonaBox.SelectedItem is PersonaProfile persona ? $"Assigned fictional persona {persona.Name}." : "Removed persona assignment."));
+        await _cases.SaveAsync(_currentCase);
+    }
+
+    private void ApplyTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (TemplateBox.SelectedItem is not ReplyTemplate template) return;
+        var persona = PersonaBox.SelectedItem as PersonaProfile;
+        var signoff = persona is null ? string.Empty : $"\n\n{persona.Name}";
+        DraftBox.Text = template.Body + signoff;
+    }
+
+    private async void StopEngagement_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case before stopping an engagement."); return; }
+        if (_currentCase.EngagementStopped) { await ShowMessage("This engagement is already permanently stopped."); return; }
+        var reason = new TextBox { Header = "Reason", Text = "Safety decision", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Permanently stop this engagement?", Content = reason, PrimaryButtonText = "Stop permanently", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var now = DateTimeOffset.Now;
+        _currentCase.EngagementStopped = true;
+        _currentCase.EngagementStoppedAt = now;
+        _currentCase.EngagementStopReason = string.IsNullOrWhiteSpace(reason.Text) ? "Safety decision" : reason.Text.Trim();
+        _currentCase.UpdatedAt = now;
+        _currentCase.Timeline.Add(new CaseEvent(now, "Engagement stopped", _currentCase.EngagementStopReason));
+        await _cases.SaveAsync(_currentCase);
+        ShowStoppedState();
+        ReviewDraft();
+    }
+
+    private void ShowStoppedState()
+    {
+        if (StoppedBar is null || StopEngagementButton is null) return;
+        var stopped = _currentCase?.EngagementStopped == true;
+        StoppedBar.IsOpen = stopped;
+        StoppedBar.Message = stopped ? $"Stopped {_currentCase!.EngagementStoppedAt?.LocalDateTime:g}: {_currentCase.EngagementStopReason}" : string.Empty;
+        StopEngagementButton.IsEnabled = _currentCase is not null && !stopped;
+    }
+
+    private void GenerateReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { ReportBox.Text = "Open or save a case before generating a report."; return; }
+        ReportBox.Text = EngagementWorkspaceService.BuildReport(_currentCase, ReportDestinationBox.SelectedItem?.ToString() ?? "Reporting service");
+    }
+
+    private void CopyReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(ReportBox.Text)) return;
+        var package = new DataPackage(); package.SetText(ReportBox.Text); Clipboard.SetContent(package);
     }
 
     private async Task ShowMessage(string message) => await new ContentDialog

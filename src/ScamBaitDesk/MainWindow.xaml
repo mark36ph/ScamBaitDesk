@@ -11,6 +11,7 @@
             <AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/>
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
+            <AppBarButton Icon="Contact" Label="Personas" Click="Personas_Click"/>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>
@@ -61,6 +62,7 @@
                                 <x:String>New</x:String><x:String>Investigating</x:String><x:String>Awaiting verification</x:String><x:String>Reported</x:String><x:String>Closed</x:String>
                             </ComboBox>
                             <Button Content="Check sender domain reputation" Click="Reputation_Click" VerticalAlignment="Bottom"/>
+                            <Button x:Name="StopEngagementButton" Content="Stop engagement permanently" Click="StopEngagement_Click" VerticalAlignment="Bottom"/>
                         </StackPanel>
                         <InfoBar x:Name="RiskBar" IsOpen="False" IsClosable="False"/>
                         <TextBlock Text="Risk signals" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -77,6 +79,12 @@
                     <ScrollViewer><StackPanel Padding="16" Spacing="12">
                         <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Manual engagement mode" Message="Use only a dedicated bait account and fictional persona. Never send secrets, real personal details, attachments, tracking links, threats, or claims of authority."/>
                         <TextBlock x:Name="RecipientText" Text="Select a message to lock the recipient" FontWeight="SemiBold"/>
+                        <InfoBar x:Name="StoppedBar" IsOpen="False" IsClosable="False" Severity="Error" Title="Engagement stopped"/>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="PersonaBox" Header="Fictional persona" DisplayMemberPath="Display" SelectionChanged="PersonaBox_SelectionChanged"/>
+                            <ComboBox x:Name="TemplateBox" Grid.Column="1" Header="Reply template" DisplayMemberPath="Display"/>
+                            <Button Grid.Column="2" Content="Apply template" Click="ApplyTemplate_Click" VerticalAlignment="Bottom"/>
+                        </Grid>
                         <TextBox x:Name="DraftBox" Header="Plain-text reply" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="240" TextChanged="DraftBox_TextChanged"/>
                         <InfoBar x:Name="PrivacyBar" IsOpen="True" IsClosable="False" Title="Privacy guard"/>
                         <ItemsControl x:Name="PrivacyFindings">
@@ -135,6 +143,24 @@
                             </DataTemplate></ListView.ItemTemplate>
                         </ListView>
                     </Grid>
+                </TabViewItem>
+                <TabViewItem Header="Report" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Reporting assistant" Message="Creates a local redacted draft only. It does not upload evidence or submit a report."/>
+                        <ComboBox x:Name="ReportDestinationBox" Header="Reporting destination" SelectedIndex="0">
+                            <x:String>National fraud reporting service</x:String>
+                            <x:String>Email provider abuse team</x:String>
+                            <x:String>Bank or payment provider</x:String>
+                            <x:String>Domain registrar or hosting provider</x:String>
+                            <x:String>Police or law-enforcement reference</x:String>
+                        </ComboBox>
+                        <Button Content="Generate redacted report" Click="GenerateReport_Click" HorizontalAlignment="Left"/>
+                        <TextBox x:Name="ReportBox" Header="Review before submitting" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="340"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Copy report" Click="CopyReport_Click"/>
+                            <Button Content="Export evidence ZIP" Click="ExportEvidence_Click"/>
+                        </StackPanel>
+                    </StackPanel></ScrollViewer>
                 </TabViewItem>
             </TabView>
         </Grid>
