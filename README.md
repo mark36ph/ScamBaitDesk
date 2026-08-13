@@ -81,3 +81,7 @@ dotnet build ScamBaitDesk.sln -c Release -p:Platform=x64
 ```
 
 The project uses Windows App SDK 2.3.1 and MailKit 4.17.0.
+
+## Update an existing development installation
+
+From the repository root, run `PowerShell -ExecutionPolicy Bypass -File .\scripts\Update-ScamBaitDesk.ps1`. The script pulls `main`, builds the app, assigns a monotonically increasing loose-package version, and registers the update in place. This avoids uninstalling the app or disturbing identity-bound credentials.
