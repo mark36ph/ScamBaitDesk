@@ -108,6 +108,11 @@ public sealed record SafeQuestion(string Category, string Text)
     public string Display => $"{Category} · {Text}";
 }
 
+public sealed record EngagementPlaybook(string Name, string Stage, string Objective, IReadOnlyList<string> Steps)
+{
+    public string Display => $"{Name} · {Stage}";
+}
+
 public sealed record NextActionItem(string Priority, string CaseTitle, string Action, Guid CaseId)
 {
     public string Display => $"{Priority} · {CaseTitle} — {Action}";

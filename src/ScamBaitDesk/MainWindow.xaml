@@ -208,6 +208,10 @@
                 <TabViewItem x:Name="PlanTab" Header="Engagement plan" IsClosable="False">
                     <ScrollViewer><StackPanel Padding="16" Spacing="12">
                         <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Controlled plan" Message="Objectives and questions organise manual work. Nothing here sends messages or performs external actions."/>
+                        <TextBlock Text="Conversation playbook" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="PlaybookBox" DisplayMemberPath="Display" SelectionChanged="PlaybookBox_SelectionChanged"/><Button Grid.Column="1" Content="Apply playbook" Click="ApplyPlaybook_Click"/></Grid>
+                        <ListView x:Name="PlaybookStepList" MaxHeight="170"><ListView.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="Case briefing" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock x:Name="CaseBriefingText" Text="Open a case to generate a briefing." TextWrapping="Wrap"/><Button Content="Copy briefing" Click="CopyBriefing_Click" HorizontalAlignment="Left"/></StackPanel></Border>
                         <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="EngagementStageBox" Header="Conversation stage" SelectedIndex="0"><x:String>Initial review</x:String><x:String>Verification questions</x:String><x:String>Claims under review</x:String><x:String>Awaiting response</x:String><x:String>Ready to report</x:String><x:String>Ended</x:String></ComboBox>
                             <TextBox x:Name="EngagementObjectiveBox" Grid.Column="1" Header="Current objective"/>

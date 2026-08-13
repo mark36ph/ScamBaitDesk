@@ -30,6 +30,14 @@ public sealed class EngagementWorkspaceService
         new("Account alert", "Which public webpage explains this alert without requiring me to use a link from your message?")
     ];
 
+    public IReadOnlyList<EngagementPlaybook> Playbooks { get; } =
+    [
+        new("Identity verification", "Verification questions", "Obtain independently verifiable organisation and identity details", ["Ask for the full legal entity and registration number", "Request a public switchboard and department", "Verify through independently sourced contact details", "Record discrepancies in the claim ledger"]),
+        new("Payment evidence", "Claims under review", "Document the payment story without sending money or financial details", ["Request an itemised written explanation", "Record the requested payment method and recipient", "Compare it with the organisation's published process", "Stop if asked for credentials, codes, or real financial data"]),
+        new("Delay and observe", "Awaiting response", "Slow the conversation while preserving evidence and boundaries", ["Use one neutral clarification question", "Do not promise payment or access links", "Schedule a manual follow-up reminder", "Keep all outbound activity within the case budget"]),
+        new("Prepare to report", "Ready to report", "Consolidate evidence and end engagement safely", ["Review redactions and message headers", "Mark contradicted claims", "Generate the local reporting draft", "Export the hashed evidence package", "Stop engagement permanently"])
+    ];
+
     public static PrivacyReview CheckPersonaConsistency(string draft, PersonaProfile? persona)
     {
         if (persona is null) return new PrivacyReview([new PrivacyFinding("Persona not assigned", "Assign a fictional persona before engaging so replies remain consistent.", false)]);

@@ -55,6 +55,8 @@ public sealed partial class MainWindow : Window
         TemplateBox.SelectedIndex = 0;
         QuestionBox.ItemsSource = _workspace.Questions;
         QuestionBox.SelectedIndex = 0;
+        PlaybookBox.ItemsSource = _workspace.Playbooks;
+        PlaybookBox.SelectedIndex = 0;
         _ = LoadPersonasAsync();
         _ = LoadSafetyStateAsync();
         _ = LoadCasesAsync();
@@ -85,9 +87,18 @@ public sealed partial class MainWindow : Window
     private void SetWindowIcon()
     {
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ScamBaitDesk-v2.ico");
+        var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var module = GetModuleHandle(null);
+        var embeddedIcon = LoadIcon(module, new IntPtr(EmbeddedApplicationIcon));
+        if (embeddedIcon != IntPtr.Zero)
+        {
+            SendMessage(windowHandle, SetIconMessage, new IntPtr(IconBig), embeddedIcon);
+            SendMessage(windowHandle, SetIconMessage, new IntPtr(IconSmall), embeddedIcon);
+            SetClassLongPtr(windowHandle, ClassIcon, embeddedIcon);
+            SetClassLongPtr(windowHandle, ClassSmallIcon, embeddedIcon);
+        }
         if (!File.Exists(iconPath)) return;
         AppWindow.SetIcon(iconPath);
-        var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var largeIcon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 32, 32, LoadFromFile);
         var smallIcon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 16, 16, LoadFromFile);
         if (largeIcon != IntPtr.Zero) SendMessage(windowHandle, SetIconMessage, new IntPtr(IconBig), largeIcon);
@@ -103,6 +114,7 @@ public sealed partial class MainWindow : Window
     private const uint LoadFromFile = 0x0010;
     private const int ClassIcon = -14;
     private const int ClassSmallIcon = -34;
+    private const int EmbeddedApplicationIcon = 32512;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint load);
@@ -112,6 +124,12 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll", EntryPoint = "SetClassLongPtrW", SetLastError = true)]
     private static extern IntPtr SetClassLongPtr(IntPtr window, int index, IntPtr value);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr GetModuleHandle(string? moduleName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr LoadIcon(IntPtr instance, IntPtr iconName);
 
     private void SetCollectionTabs(string destination)
     {
@@ -448,6 +466,7 @@ public sealed partial class MainWindow : Window
         RefreshCaseTools();
         RefreshEngagementPlan();
         RefreshConversationSummary();
+        RefreshCaseBriefing();
         _ = RestoreDraftAsync();
     }
 
@@ -742,6 +761,34 @@ public sealed partial class MainWindow : Window
         ConversationFactList.ItemsSource = summary.Facts;
         ContradictionList.ItemsSource = summary.Contradictions;
         UnansweredQuestionList.ItemsSource = summary.UnansweredQuestions;
+    }
+
+    private void RefreshCaseBriefing()
+    {
+        if (_currentCase is null) { CaseBriefingText.Text = "Open a case to generate a briefing."; return; }
+        var due = _currentCase.Reminders.Count(item => !item.Completed && item.DueAt <= DateTimeOffset.Now);
+        var contradicted = _currentCase.SenderClaims.Count(item => item.VerificationStatus == "Contradicted");
+        var next = _intelligence.NextActions([_currentCase]).FirstOrDefault()?.Action ?? "Review the case and choose a controlled next step";
+        CaseBriefingText.Text = $"{_currentCase.Priority} priority · risk {_currentCase.Analysis?.Score ?? 0}/100 · {_currentCase.EngagementStage}. {_currentCase.Messages.Count} message(s), {_currentCase.OutboundMessages.Count} manual reply/replies, {contradicted} contradicted claim(s), {due} overdue reminder(s). Next: {next}.";
+    }
+
+    private void PlaybookBox_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        PlaybookStepList.ItemsSource = (PlaybookBox.SelectedItem as EngagementPlaybook)?.Steps;
+
+    private async void ApplyPlaybook_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || PlaybookBox.SelectedItem is not EngagementPlaybook playbook) { await ShowMessage("Open a case and select a playbook first."); return; }
+        _currentCase.EngagementStage = playbook.Stage;
+        _currentCase.EngagementObjective = playbook.Objective;
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Playbook", $"Applied {playbook.Name}; no message sent."));
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan(); RefreshCaseBriefing(); await LoadCasesAsync();
+    }
+
+    private void CopyBriefing_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(CaseBriefingText.Text)) return;
+        var package = new DataPackage(); package.SetText(CaseBriefingText.Text); Clipboard.SetContent(package);
     }
 
     private async void SaveEngagementPlan_Click(object sender, RoutedEventArgs e)
