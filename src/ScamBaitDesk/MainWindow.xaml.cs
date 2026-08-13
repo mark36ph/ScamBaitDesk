@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     private readonly ConversationSummaryService _conversationSummary = new();
     private readonly MailDiagnosticService _mailDiagnostic = new();
     private readonly AppUpdateService _appUpdate = new();
+    private readonly VpnIntegrationService _vpn = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -287,6 +288,26 @@ public sealed partial class MainWindow : Window
             return null;
         }
         finally { CheckUpdateButton.IsEnabled = true; }
+    }
+
+    private async void OpenFastVpn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!_vpn.OpenFastVpn()) { await ShowMessage("FastVPN could not be found. Install or reinstall the official Namecheap FastVPN Windows app, then try again."); return; }
+            await Task.Delay(800); ShowVpnStatus();
+        }
+        catch (Exception ex) { await ShowMessage($"FastVPN could not be opened: {ex.Message}"); }
+    }
+
+    private void CheckVpn_Click(object sender, RoutedEventArgs e) => ShowVpnStatus();
+
+    private void ShowVpnStatus()
+    {
+        var status = _vpn.GetStatus();
+        VpnStatusBar.Title = status.IsConnected ? "VPN tunnel detected" : "VPN not connected";
+        VpnStatusBar.Message = status.Detail;
+        VpnStatusBar.Severity = status.IsConnected ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
     }
 
     private void Monitor_Click(object sender, RoutedEventArgs e)

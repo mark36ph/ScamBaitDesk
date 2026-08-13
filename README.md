@@ -47,6 +47,7 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Provides a provider-neutral call workspace that uses only phone numbers extracted from the active case and opens one number in the configured Windows VoIP handler.
 - Stores redacted call outcomes, notes, recording-consent confirmation, and timeline entries in the case and evidence export.
 - Does not provide caller-ID spoofing, autodialling, bulk calling, covert recording, or automatic calls.
+- Opens the official FastVPN Windows client and reports whether Windows exposes an active VPN/tunnel adapter; it does not automate or bypass FastVPN's own Connect control.
 - Maintains a redacted ledger of sender claims and their verification status.
 - Offers a safe verification-question bank that only inserts text into the manual draft.
 - Warns when a reply may be inconsistent with the assigned fictional persona.
