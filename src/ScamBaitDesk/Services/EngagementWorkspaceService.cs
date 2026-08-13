@@ -18,6 +18,33 @@ public sealed class EngagementWorkspaceService
         new("End the conversation", "Stop", "Do not contact this address again. Further messages will be retained as evidence and reported through the appropriate channels.")
     ];
 
+    public IReadOnlyList<SafeQuestion> Questions { get; } =
+    [
+        new("Identity", "What is the organisation's full legal name and registration number?"),
+        new("Identity", "Which department are you contacting me from, and what is the public switchboard number?"),
+        new("Verification", "What reference can I verify through contact details published independently?"),
+        new("Payment", "Please provide an itemised explanation of the amount and the contractual basis for it."),
+        new("Payment", "Why is the requested payment method different from the organisation's published payment process?"),
+        new("Timeline", "What exact date was this matter opened, and when does your stated deadline expire?"),
+        new("Location", "What is the organisation's registered postal address and jurisdiction?"),
+        new("Account alert", "Which public webpage explains this alert without requiring me to use a link from your message?")
+    ];
+
+    public static PrivacyReview CheckPersonaConsistency(string draft, PersonaProfile? persona)
+    {
+        if (persona is null) return new PrivacyReview([new PrivacyFinding("Persona not assigned", "Assign a fictional persona before engaging so replies remain consistent.", false)]);
+        var findings = new List<PrivacyFinding>();
+        if (!string.IsNullOrWhiteSpace(persona.Name) && !draft.Contains(persona.Name, StringComparison.OrdinalIgnoreCase))
+            findings.Add(new PrivacyFinding("Persona signature", $"The assigned persona is {persona.Name}; check the sign-off and point of view.", false));
+        foreach (var line in persona.SafeDetails.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var marker = line.Split(':', 2)[0].Trim();
+            if (marker.Length > 2 && draft.Contains(marker, StringComparison.OrdinalIgnoreCase) && !draft.Contains(line.Trim(), StringComparison.OrdinalIgnoreCase))
+                findings.Add(new PrivacyFinding("Possible persona contradiction", $"Review the stored fictional detail: {line.Trim()}", false));
+        }
+        return new PrivacyReview(findings);
+    }
+
     public async Task<IReadOnlyList<PersonaProfile>> LoadPersonasAsync()
     {
         if (!File.Exists(_path)) return [];

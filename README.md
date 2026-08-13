@@ -39,6 +39,11 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Quarantines attachments as inert metadata only, with no open, preview, save, or execute action.
 - Provides a persistent global emergency stop that disables all outbound sending.
 - Exports a lightweight redacted text summary separately from the full evidence ZIP.
+- Tracks conversation stage, a current engagement objective, a total reply budget, and an optional deadline per case.
+- Maintains a redacted ledger of sender claims and their verification status.
+- Offers a safe verification-question bank that only inserts text into the manual draft.
+- Warns when a reply may be inconsistent with the assigned fictional persona.
+- Blocks sending when the case budget is exhausted, its deadline has passed, or its engagement stage is Ended.
 
 ## Requirements
 

@@ -91,6 +91,16 @@ public sealed record DuplicateCaseMatch(Guid CaseId, string Title, int Score, st
 
 public sealed record DashboardMetric(string Label, string Value);
 
+public sealed record SenderClaim(Guid Id, DateTimeOffset RecordedAt, string Category, string Claim, string VerificationStatus)
+{
+    public string Display => $"{Category} · {VerificationStatus} — {Claim}";
+}
+
+public sealed record SafeQuestion(string Category, string Text)
+{
+    public string Display => $"{Category} · {Text}";
+}
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";
@@ -144,6 +154,11 @@ public sealed class CaseRecord
     public DateTimeOffset? EngagementStoppedAt { get; set; }
     public string EngagementStopReason { get; set; } = string.Empty;
     public List<FollowUpReminder> Reminders { get; set; } = [];
+    public string EngagementStage { get; set; } = "Initial review";
+    public string EngagementObjective { get; set; } = "Request independently verifiable information";
+    public int OutboundMessageBudget { get; set; } = 10;
+    public DateTimeOffset? EngagementDeadline { get; set; }
+    public List<SenderClaim> SenderClaims { get; set; } = [];
     public string StatusDisplay => Status switch
     {
         CaseStatus.AwaitingVerification => "Awaiting verification",

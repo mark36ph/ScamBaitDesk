@@ -38,6 +38,8 @@ public sealed partial class MainWindow : Window
         ReviewDraft();
         TemplateBox.ItemsSource = _workspace.Templates;
         TemplateBox.SelectedIndex = 0;
+        QuestionBox.ItemsSource = _workspace.Questions;
+        QuestionBox.SelectedIndex = 0;
         _ = LoadPersonasAsync();
         _ = LoadSafetyStateAsync();
         _ = LoadCasesAsync();
@@ -227,6 +229,7 @@ public sealed partial class MainWindow : Window
         ShowForensics(_selected);
         ShowIndicators(_currentCase.Messages);
         RefreshCaseTools();
+        RefreshEngagementPlan();
     }
 
     private void ShowForensics(InboxMessage? message)
@@ -306,7 +309,15 @@ public sealed partial class MainWindow : Window
         PrivacyBar.Message = review.Summary;
         PrivacyBar.Severity = !review.CanSend ? InfoBarSeverity.Error : review.Findings.Count > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
         PrivacyFindings.ItemsSource = review.Findings;
-        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null && _currentCase?.EngagementStopped != true && !_globalEmergencyStop;
+        var personaReview = EngagementWorkspaceService.CheckPersonaConsistency(DraftBox.Text ?? string.Empty, PersonaBox?.SelectedItem as PersonaProfile);
+        ConsistencyBar.Title = personaReview.Findings.Count == 0 ? "Persona consistency passed" : "Review persona consistency";
+        ConsistencyBar.Message = personaReview.Summary;
+        ConsistencyBar.Severity = personaReview.Findings.Count == 0 ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
+        ConsistencyFindings.ItemsSource = personaReview.Findings;
+        var budgetAvailable = _currentCase is null || _currentCase.OutboundMessages.Count < _currentCase.OutboundMessageBudget;
+        var beforeDeadline = _currentCase?.EngagementDeadline is null || DateTimeOffset.Now <= _currentCase.EngagementDeadline;
+        var activeStage = _currentCase?.EngagementStage != "Ended";
+        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null && _currentCase?.EngagementStopped != true && !_globalEmergencyStop && budgetAvailable && beforeDeadline && activeStage;
     }
 
     private async void SendReply_Click(object sender, RoutedEventArgs e)
@@ -317,6 +328,9 @@ public sealed partial class MainWindow : Window
         if (_currentCase is null) { await ShowMessage("Save or open the case before sending so the engagement has an audit trail."); return; }
         if (_currentCase.EngagementStopped) { await ShowMessage("This engagement was permanently stopped. Sending is disabled for this case."); return; }
         if (_globalEmergencyStop) { await ShowMessage("The global emergency stop is enabled. Disable it before any outbound message can be sent."); return; }
+        if (_currentCase.OutboundMessages.Count >= _currentCase.OutboundMessageBudget) { await ShowMessage("This case has reached its total outbound-message budget. Review the engagement plan before continuing."); return; }
+        if (_currentCase.EngagementDeadline is DateTimeOffset deadline && DateTimeOffset.Now > deadline) { await ShowMessage("This case's engagement deadline has passed. Review the plan before continuing."); return; }
+        if (_currentCase.EngagementStage == "Ended") { await ShowMessage("This engagement plan is marked Ended. Change the plan only after a deliberate review."); return; }
 
         var recent = _currentCase.OutboundMessages.Where(item => item.SentAt >= DateTimeOffset.Now.AddHours(-1)).OrderByDescending(item => item.SentAt).ToList();
         if (recent.Count >= 5) { await ShowMessage("Rate limit reached: no more than five messages per case per hour."); return; }
@@ -395,6 +409,7 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Persona", PersonaBox.SelectedItem is PersonaProfile persona ? $"Assigned fictional persona {persona.Name}." : "Removed persona assignment."));
         await _cases.SaveAsync(_currentCase);
+        ReviewDraft();
     }
 
     private void ApplyTemplate_Click(object sender, RoutedEventArgs e)
@@ -460,6 +475,60 @@ public sealed partial class MainWindow : Window
         AttachmentList.ItemsSource = _currentCase.Messages.SelectMany(message => message.Attachments).ToList();
         DuplicateList.ItemsSource = _intelligence.FindDuplicates(_currentCase, _caseRecords);
         ReminderList.ItemsSource = _currentCase.Reminders.OrderBy(reminder => reminder.Completed).ThenBy(reminder => reminder.DueAt).ToList();
+    }
+
+    private void RefreshEngagementPlan()
+    {
+        if (_currentCase is null) return;
+        var stages = new[] { "Initial review", "Verification questions", "Claims under review", "Awaiting response", "Ready to report", "Ended" };
+        EngagementStageBox.SelectedIndex = Math.Max(0, Array.IndexOf(stages, _currentCase.EngagementStage));
+        EngagementObjectiveBox.Text = _currentCase.EngagementObjective;
+        MessageBudgetBox.Value = _currentCase.OutboundMessageBudget;
+        EngagementDeadlinePicker.Date = _currentCase.EngagementDeadline ?? DateTimeOffset.Now.AddDays(7);
+        ClaimList.ItemsSource = _currentCase.SenderClaims.OrderByDescending(item => item.RecordedAt).ToList();
+    }
+
+    private async void SaveEngagementPlan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        _currentCase.EngagementStage = EngagementStageBox.SelectedItem?.ToString() ?? "Initial review";
+        _currentCase.EngagementObjective = string.IsNullOrWhiteSpace(EngagementObjectiveBox.Text) ? "Request independently verifiable information" : EngagementObjectiveBox.Text.Trim();
+        _currentCase.OutboundMessageBudget = Math.Max(1, (int)MessageBudgetBox.Value);
+        _currentCase.EngagementDeadline = EngagementDeadlinePicker.Date.Date.AddDays(1).AddTicks(-1);
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Engagement plan", $"Stage: {_currentCase.EngagementStage}; reply budget: {_currentCase.OutboundMessageBudget}; deadline: {_currentCase.EngagementDeadline?.LocalDateTime:g}."));
+        await _cases.SaveAsync(_currentCase); ReviewDraft(); await LoadCasesAsync();
+    }
+
+    private void ApplyQuestion_Click(object sender, RoutedEventArgs e)
+    {
+        if (QuestionBox.SelectedItem is not SafeQuestion question) return;
+        DraftBox.Text = string.IsNullOrWhiteSpace(DraftBox.Text) ? question.Text : $"{DraftBox.Text.Trim()}\n\n{question.Text}";
+    }
+
+    private async void AddClaim_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        var category = new ComboBox { Header = "Category", SelectedIndex = 0, ItemsSource = new[] { "Identity", "Organisation", "Payment", "Urgency", "Location", "Relationship", "Other" } };
+        var claim = new TextBox { Header = "What the sender claimed", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+        var status = new ComboBox { Header = "Verification", SelectedIndex = 0, ItemsSource = new[] { "Unverified", "Inconsistent", "Independently verified", "Contradicted" } };
+        var panel = new StackPanel { Spacing = 10 }; panel.Children.Add(category); panel.Children.Add(claim); panel.Children.Add(status);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Record sender claim", Content = panel, PrimaryButtonText = "Record", CloseButtonText = "Cancel" };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(claim.Text)) return;
+        var item = new SenderClaim(Guid.NewGuid(), DateTimeOffset.Now, category.SelectedItem?.ToString() ?? "Other", ScamAnalysisService.Redact(claim.Text.Trim()), status.SelectedItem?.ToString() ?? "Unverified");
+        _currentCase.SenderClaims.Add(item); _currentCase.UpdatedAt = item.RecordedAt;
+        _currentCase.Timeline.Add(new CaseEvent(item.RecordedAt, "Sender claim", $"{item.Category}: {item.VerificationStatus}."));
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
+    }
+
+    private async void ContradictClaim_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || ClaimList.SelectedItem is not SenderClaim selected) { await ShowMessage("Select a sender claim first."); return; }
+        var index = _currentCase.SenderClaims.FindIndex(item => item.Id == selected.Id); if (index < 0) return;
+        _currentCase.SenderClaims[index] = selected with { VerificationStatus = "Contradicted" };
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Claim contradicted", selected.Category));
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
     }
 
     private async void EmergencyStop_Click(object sender, RoutedEventArgs e)
