@@ -588,12 +588,14 @@ public sealed partial class MainWindow : Window
                 : "These are structural warning signs only; they are not a definitive scam verdict.";
             WebsiteResultBar.Severity = result.Score >= 55 ? InfoBarSeverity.Error : result.Score >= 25 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
             WebsiteFindingList.ItemsSource = result.Findings;
+            SetWebsiteScanSummary(result.Findings, "Address-only check");
         }
         catch (Exception ex)
         {
             WebsiteResultBar.IsOpen = true; WebsiteResultBar.Title = "Address could not be checked";
             WebsiteResultBar.Message = ex.Message; WebsiteResultBar.Severity = InfoBarSeverity.Error;
             WebsiteFindingList.ItemsSource = null;
+            WebsiteScanSummary.Text = "The address could not be analysed.";
         }
     }
 
@@ -631,6 +633,7 @@ public sealed partial class MainWindow : Window
             WebsiteResultBar.Message = $"Page title: {live.PageTitle} · downloaded {live.DownloadBytes:N0} bytes · followed {live.RedirectCount} redirect(s). A low score does not prove the site is safe.";
             WebsiteResultBar.Severity = score >= 55 ? InfoBarSeverity.Error : score >= 25 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
             WebsiteFindingList.ItemsSource = combined;
+            SetWebsiteScanSummary(combined, $"Combined address and live-page check · {live.PageTitle}");
             if (_currentCase is not null)
             {
                 _currentCase.UpdatedAt = DateTimeOffset.Now;
@@ -645,6 +648,7 @@ public sealed partial class MainWindow : Window
             WebsiteResultBar.Message = ex.Message;
             WebsiteResultBar.Severity = InfoBarSeverity.Error;
             WebsiteFindingList.ItemsSource = local.Findings;
+            SetWebsiteScanSummary(local.Findings, "Live scan stopped; address-only results shown");
         }
         finally
         {
@@ -652,6 +656,16 @@ public sealed partial class MainWindow : Window
             WebsiteScanProgress.Visibility = Visibility.Collapsed;
             LiveWebsiteScanButton.IsEnabled = true;
         }
+    }
+
+    private void SetWebsiteScanSummary(IReadOnlyCollection<WebsiteFinding> findings, string scope)
+    {
+        var high = findings.Count(finding => finding.Weight >= 25);
+        var medium = findings.Count(finding => finding.Weight is >= 15 and < 25);
+        var low = findings.Count - high - medium;
+        WebsiteScanSummary.Text = findings.Count == 0
+            ? $"{scope} · No warning patterns detected. This is not proof that the site is legitimate."
+            : $"{scope} · {high} high, {medium} medium, and {low} low-concern warning(s). Review each card below for its evidence and recommended response.";
     }
 
     private async void CheckWebsiteReputation_Click(object sender, RoutedEventArgs e)

@@ -192,8 +192,17 @@
                             <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Use first URL from active case" Click="LoadCaseWebsite_Click"/><Button Content="Search existing VirusTotal report" Click="CheckWebsiteReputation_Click"/></StackPanel>
                         </StackPanel>
                         <InfoBar x:Name="WebsiteResultBar" IsOpen="False" IsClosable="True" Title="Website check"/>
-                        <TextBlock Text="Local findings" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                        <ListView x:Name="WebsiteFindingList" MaxHeight="420"><ListView.ItemTemplate><DataTemplate x:DataType="local:WebsiteFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock x:Name="WebsiteScanSummary" Text="Run a check to see a severity breakdown and detailed guidance." TextWrapping="Wrap" FontWeight="SemiBold"/>
+                        <TextBlock Text="Warnings and guidance" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="WebsiteFindingList" MaxHeight="520"><ListView.ItemTemplate><DataTemplate x:DataType="local:WebsiteFinding">
+                            <Border Style="{StaticResource WorkspaceCard}" Margin="0,5"><StackPanel Spacing="6">
+                                <TextBlock Text="{x:Bind Label}" FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind SeverityDisplay}" FontSize="12" FontWeight="SemiBold" Opacity="0.72"/>
+                                <TextBlock Text="{x:Bind Detail}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind EvidenceDisplay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" Opacity="0.78"/>
+                                <TextBlock Text="{x:Bind RecommendationDisplay}" TextWrapping="Wrap" Opacity="0.82"/>
+                            </StackPanel></Border>
+                        </DataTemplate></ListView.ItemTemplate></ListView>
                         <Border Style="{StaticResource WorkspaceCard}"><TextBlock Text="A low score is not proof that a website is legitimate. Newly created, compromised, or carefully disguised sites may have no obvious URL warning. Never enter passwords, codes, payment information, or real identity details based on this result." TextWrapping="Wrap" Opacity="0.72"/></Border>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>

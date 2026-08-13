@@ -28,9 +28,11 @@ public sealed class WebsiteSafetyService
             string.IsNullOrWhiteSpace(uri.Host))
             throw new ArgumentException("Enter a complete web address or domain, such as https://example.com.");
 
-        var findings = new List<WebsiteFinding>();
-        void Add(string label, string detail, int weight) => findings.Add(new WebsiteFinding(label, detail, weight));
         var host = uri.IdnHost.TrimEnd('.');
+        var findings = new List<WebsiteFinding>();
+        void Add(string label, string detail, int weight) => findings.Add(new WebsiteFinding(
+            label, detail, weight, "Address structure", $"Analysed scheme {uri.Scheme.ToUpperInvariant()} and host {host}.",
+            "Confirm the real domain through an independent source before opening the page or entering any information."));
         var labels = host.Split('.', StringSplitOptions.RemoveEmptyEntries);
 
         if (uri.Scheme == "http") Add("No HTTPS", "The address uses unencrypted HTTP.", 18);
@@ -91,7 +93,7 @@ public sealed class WebsiteSafetyService
                     var next = location.IsAbsoluteUri ? location : new Uri(current, location);
                     ValidatePublicWebUri(next);
                     if (!next.IdnHost.Equals(current.IdnHost, StringComparison.OrdinalIgnoreCase))
-                        AddFinding(findings, "Cross-domain redirect", $"The request moved from {current.IdnHost} to {next.IdnHost}.", 16);
+                        AddFinding(findings, "Cross-domain redirect", "Redirecting to another domain can hide the organisation actually receiving the visit.", 16, "Navigation", $"Observed redirect: {current.IdnHost} → {next.IdnHost}.", "Compare the final domain with the organisation's address obtained from an independent trusted source.");
                     current = next;
                     continue;
                 }
@@ -184,29 +186,47 @@ public sealed class WebsiteSafetyService
     private static void AnalyzePage(Uri page, string html, List<WebsiteFinding> findings)
     {
         var visible = WebUtility.HtmlDecode(Regex.Replace(Regex.Replace(html, @"<(script|style)\b[^>]*>.*?</\1>", " ", RegexOptions.IgnoreCase | RegexOptions.Singleline), @"<[^>]+>", " "));
-        if (Regex.IsMatch(html, @"<input\b[^>]*type\s*=\s*['""]?password", RegexOptions.IgnoreCase)) AddFinding(findings, "Password collection", "The page contains a password input field.", 34);
-        if (Regex.IsMatch(html, @"<form\b", RegexOptions.IgnoreCase) && Regex.IsMatch(html, @"\b(user(name)?|email|account|login)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Account sign-in form", "The page combines a form with account or login fields.", 18);
+        var passwordFields = Regex.Matches(html, @"<input\b[^>]*type\s*=\s*['""]?password", RegexOptions.IgnoreCase).Count;
+        if (passwordFields > 0) AddFinding(findings, "Password collection", "Password fields can be legitimate, but on an unverified domain they are a primary credential-theft risk.", 34, "Credentials", $"Found {passwordFields} HTML password input field(s). No values were read or submitted.", "Do not enter a password. Reach the organisation through a bookmarked or independently verified address and compare its domain.");
+
+        var formCount = Regex.Matches(html, @"<form\b", RegexOptions.IgnoreCase).Count;
+        var accountMarker = Regex.Match(html, @"\b(user(name)?|email|account|login)\b", RegexOptions.IgnoreCase);
+        if (formCount > 0 && accountMarker.Success) AddFinding(findings, "Account sign-in form", "A form paired with account wording may be designed to collect identity or login details.", 18, "Credentials", $"Found {formCount} form(s) and the account marker “{CleanText(accountMarker.Value, 40)}”.", "Treat the form as untrusted until the domain and organisation are independently verified.");
+
         foreach (Match match in Regex.Matches(html, @"<form\b[^>]*\baction\s*=\s*['""](?<url>[^'""]+)", RegexOptions.IgnoreCase))
         {
             if (!Uri.TryCreate(page, WebUtility.HtmlDecode(match.Groups["url"].Value), out var action)) continue;
-            if (!action.IdnHost.Equals(page.IdnHost, StringComparison.OrdinalIgnoreCase)) AddFinding(findings, "External form destination", $"A form submits information to {action.IdnHost}.", 28);
-            if (page.Scheme == Uri.UriSchemeHttps && action.Scheme == Uri.UriSchemeHttp) AddFinding(findings, "Insecure form submission", "A form on an HTTPS page submits over unencrypted HTTP.", 30);
+            if (!action.IdnHost.Equals(page.IdnHost, StringComparison.OrdinalIgnoreCase)) AddFinding(findings, "External form destination", "Information entered on the page would be sent to a different domain, which can conceal the real recipient.", 28, "Data destination", $"Page domain: {page.IdnHost}; form destination: {action.IdnHost}.", "Do not submit the form. Verify both domains and report the destination as a separate indicator.");
+            if (page.Scheme == Uri.UriSchemeHttps && action.Scheme == Uri.UriSchemeHttp) AddFinding(findings, "Insecure form submission", "The form would remove transport encryption before sending entered information.", 30, "Transport security", $"HTTPS page form action uses HTTP: {action.GetLeftPart(UriPartial.Path)}", "Do not enter or submit any information on this form.");
         }
-        if (Regex.IsMatch(html, @"<meta\b[^>]*http-equiv\s*=\s*['""]?refresh", RegexOptions.IgnoreCase)) AddFinding(findings, "Automatic page redirect", "The page contains a browser refresh redirect.", 16);
-        if (Regex.IsMatch(html, @"\b(eval\s*\(|atob\s*\(|fromCharCode\s*\()", RegexOptions.IgnoreCase)) AddFinding(findings, "Obfuscated script indicator", "Scripts contain functions commonly used to conceal generated content. This can also occur on legitimate sites.", 12);
-        if (Regex.IsMatch(visible, @"\b(seed phrase|recovery phrase|private key|wallet phrase)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Wallet secret request", "The page refers to wallet recovery secrets or private keys.", 38);
-        if (Regex.IsMatch(visible, @"\b(one[- ]time (password|code)|OTP|verification code|security code)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Authentication-code request", "The page refers to one-time or verification codes.", 28);
-        if (Regex.IsMatch(visible, @"\b(gift card|steam card|apple card|google play card)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Gift-card payment language", "The page mentions gift cards, a common irreversible payment request.", 24);
-        if (Regex.IsMatch(visible, @"\b(bitcoin|cryptocurrency|crypto wallet|USDT|ethereum)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Cryptocurrency language", "The page mentions cryptocurrency or wallets.", 16);
-        if (Regex.IsMatch(visible, @"\b(anydesk|teamviewer|remote desktop|screen connect|quick assist)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Remote-access software", "The page refers to tools that can give another person control of a device.", 26);
-        if (Regex.IsMatch(visible, @"\b(act now|immediately|within 24 hours|account (will be|is) (closed|suspended|locked)|urgent action|required immediately)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Urgency or account threat", "The page pressures the visitor to act quickly or risk account loss.", 17);
-        if (Regex.IsMatch(visible, @"\b(card number|CVV|bank account|sort code|wire transfer|processing fee|release fee)\b", RegexOptions.IgnoreCase)) AddFinding(findings, "Financial information or fee request", "The page asks about payment details, bank information, or advance fees.", 22);
-        if (Regex.IsMatch(html, @"<iframe\b[^>]*(hidden|display\s*:\s*none|width\s*=\s*['""]?0)", RegexOptions.IgnoreCase)) AddFinding(findings, "Hidden embedded page", "A hidden or zero-width iframe is present.", 15);
+
+        var refreshCount = Regex.Matches(html, @"<meta\b[^>]*http-equiv\s*=\s*['""]?refresh", RegexOptions.IgnoreCase).Count;
+        if (refreshCount > 0) AddFinding(findings, "Automatic page redirect", "Browser-refresh redirects can move visitors without an obvious click and obscure the eventual destination.", 16, "Navigation", $"Found {refreshCount} meta-refresh directive(s). The scanner did not execute them.", "Inspect the destination independently and do not follow it from an untrusted page.");
+
+        var scriptMarker = Regex.Match(html, @"\b(eval\s*\(|atob\s*\(|fromCharCode\s*\()", RegexOptions.IgnoreCase);
+        if (scriptMarker.Success) AddFinding(findings, "Obfuscated script indicator", "These functions can construct or decode hidden page behaviour, although legitimate sites sometimes use them too.", 12, "Page code", $"Found script marker “{CleanText(scriptMarker.Value, 40)}”. JavaScript was not executed.", "Use this only as a supporting signal; compare it with credential, redirect, and domain findings.");
+
+        AddPhraseFinding(findings, visible, @"\b(seed phrase|recovery phrase|private key|wallet phrase)\b", "Wallet secret request", "Wallet recovery words or private keys give complete control of funds and legitimate support staff should never request them.", 38, "Wallet credentials", "Never disclose wallet recovery material. End engagement and preserve the page address as evidence.");
+        AddPhraseFinding(findings, visible, @"\b(one[- ]time (password|code)|OTP|verification code|security code)\b", "Authentication-code request", "One-time codes can authorize logins, payments, or account recovery and should never be relayed to another person.", 28, "Credentials", "Do not enter or send a code. Contact the provider using independently verified details.");
+        AddPhraseFinding(findings, visible, @"\b(gift card|steam card|apple card|google play card)\b", "Gift-card payment language", "Gift cards are difficult to reverse and are commonly demanded because their codes can be redeemed anonymously.", 24, "Payment", "Do not buy or disclose gift-card codes. Preserve the request for reporting.");
+        AddPhraseFinding(findings, visible, @"\b(bitcoin|cryptocurrency|crypto wallet|USDT|ethereum)\b", "Cryptocurrency language", "Crypto references are not proof of fraud, but irreversible transfers are common in scam payment demands.", 16, "Payment", "Do not transfer funds. Look for corroborating pressure, fee, identity, and wallet-secret warnings.");
+        AddPhraseFinding(findings, visible, @"\b(anydesk|teamviewer|remote desktop|screen connect|quick assist)\b", "Remote-access software", "Remote-access tools can let another person view the screen, control the device, and access accounts.", 26, "Device access", "Do not install or launch remote-access software at a stranger's request.");
+        AddPhraseFinding(findings, visible, @"\b(act now|immediately|within 24 hours|account (will be|is) (closed|suspended|locked)|urgent action|required immediately)\b", "Urgency or account threat", "Artificial deadlines reduce the time available to verify a story independently.", 17, "Pressure tactic", "Pause the interaction and verify the claim through an official channel you locate yourself.");
+        AddPhraseFinding(findings, visible, @"\b(card number|CVV|bank account|sort code|wire transfer|processing fee|release fee)\b", "Financial information or fee request", "Requests for payment details or advance fees can lead to theft or irreversible transfers.", 22, "Financial", "Do not provide financial details or pay a fee. Confirm the request directly with the named organisation.");
+
+        var hiddenFrames = Regex.Matches(html, @"<iframe\b[^>]*(hidden|display\s*:\s*none|width\s*=\s*['""]?0)", RegexOptions.IgnoreCase).Count;
+        if (hiddenFrames > 0) AddFinding(findings, "Hidden embedded page", "A concealed frame can load another page or tracking content without being visible to the visitor.", 15, "Embedded content", $"Found {hiddenFrames} hidden or zero-width iframe(s). Embedded pages were not loaded.", "Treat this as a supporting technical warning and investigate the domain separately.");
     }
 
-    private static void AddFinding(List<WebsiteFinding> findings, string label, string detail, int weight)
+    private static void AddPhraseFinding(List<WebsiteFinding> findings, string text, string pattern, string label, string detail, int weight, string category, string recommendation)
     {
-        if (findings.All(item => !item.Label.Equals(label, StringComparison.OrdinalIgnoreCase))) findings.Add(new WebsiteFinding(label, detail, weight));
+        var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
+        if (match.Success) AddFinding(findings, label, detail, weight, category, $"Matched visible wording: “{CleanText(match.Value, 80)}”.", recommendation);
+    }
+
+    private static void AddFinding(List<WebsiteFinding> findings, string label, string detail, int weight, string category = "Page content", string evidence = "", string recommendation = "")
+    {
+        if (findings.All(item => !item.Label.Equals(label, StringComparison.OrdinalIgnoreCase))) findings.Add(new WebsiteFinding(label, detail, weight, category, evidence, recommendation));
     }
 
     private static string CleanText(string value, int maximum)

@@ -103,9 +103,19 @@ public sealed record ActivityItem(DateTimeOffset At, string CaseTitle, string Ki
     public string Display => $"{At.LocalDateTime:g} · {CaseTitle} · {Kind} — {Detail}";
 }
 
-public sealed record WebsiteFinding(string Label, string Detail, int Weight)
+public sealed record WebsiteFinding(
+    string Label,
+    string Detail,
+    int Weight,
+    string Category = "Address structure",
+    string Evidence = "",
+    string Recommendation = "")
 {
-    public string Display => $"{Label} (+{Weight}) — {Detail}";
+    public string Severity => Weight switch { >= 25 => "High", >= 15 => "Medium", _ => "Low" };
+    public string SeverityDisplay => $"{Severity} concern · +{Weight} points · {Category}";
+    public string EvidenceDisplay => $"Evidence: {(string.IsNullOrWhiteSpace(Evidence) ? "Detected from the submitted website address." : Evidence)}";
+    public string RecommendationDisplay => $"Recommended action: {(string.IsNullOrWhiteSpace(Recommendation) ? "Verify the domain independently and do not enter personal, login, or payment information based on this page." : Recommendation)}";
+    public string Display => $"{Label} · {SeverityDisplay} — {Detail}";
 }
 
 public sealed record WebsiteCheckResult(string NormalizedUrl, string Host, int Score, string Rating, IReadOnlyList<WebsiteFinding> Findings)
