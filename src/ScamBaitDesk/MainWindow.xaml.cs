@@ -77,15 +77,49 @@ public sealed partial class MainWindow : Window
         ReviewDraft();
     }
 
-    private void ShellMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void ShellMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ShellMenu.SelectedItem is ListViewItem item && item.Tag is string destination) NavigateShell(destination);
+        if (ShellMenu.SelectedItem is not ListViewItem item || item.Tag is not string destination) return;
+        if (destination == "Case" && _selected is null && _currentCase is null)
+        {
+            await ShowMessage("Select a suspicious message or saved case under Inbox & cases first.");
+            SelectShellDestination("Inbox"); return;
+        }
+        if ((destination is "Investigate" or "Engage" or "Report") && _currentCase is null)
+        {
+            await ShowMessage("Create or open a saved case before continuing to this step.");
+            SelectShellDestination("Inbox"); return;
+        }
+        NavigateShell(destination);
     }
 
     private void SettingsNav_Click(object sender, RoutedEventArgs e)
     {
         ShellMenu.SelectedItem = null;
         NavigateShell("Settings");
+    }
+
+    private async void NavigateTo_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string destination) return;
+        if (destination == "Case" && _selected is null && _currentCase is null)
+        {
+            await ShowMessage("First open Inbox & cases and select a suspicious message or a saved case.");
+            destination = "Inbox";
+        }
+        else if ((destination is "Investigate" or "Engage" or "Report") && _currentCase is null)
+        {
+            await ShowMessage("Create or open a saved case before continuing to this step.");
+            destination = "Inbox";
+        }
+        SelectShellDestination(destination);
+        NavigateShell(destination);
+    }
+
+    private void SelectShellDestination(string destination)
+    {
+        var item = ShellMenu.Items.OfType<ListViewItem>().FirstOrDefault(candidate => candidate.Tag?.ToString() == destination);
+        if (item is not null) ShellMenu.SelectedItem = item;
     }
 
     private void NavigateShell(string destination)
@@ -96,6 +130,7 @@ public sealed partial class MainWindow : Window
         CollectionColumn.Width = showCollection ? new GridLength(290) : new GridLength(0);
         SetCollectionTabs(destination);
         SetWorkspaceTabs(destination);
+        RefreshGuidance();
     }
 
     private void SetWindowIcon()
@@ -158,16 +193,16 @@ public sealed partial class MainWindow : Window
     {
         var visible = destination switch
         {
-            "Home" => new[] { InsightTab },
+            "Home" => new[] { GuideTab },
             "Inbox" => new[] { ReviewTab },
             "Case" => new[] { ReviewTab, NotesTab, TimelineTab },
             "Engage" => new[] { PlanTab, ReplyTab, CallsTab },
             "Investigate" => new[] { InsightTab, WebsiteTab, HeadersTab, IndicatorsTab, ToolsTab },
             "Report" => new[] { ReportTab },
             "Settings" => new[] { SettingsTab },
-            _ => new[] { InsightTab }
+            _ => new[] { GuideTab }
         };
-        foreach (var tab in new[] { ReviewTab, ReplyTab, CallsTab, NotesTab, TimelineTab, WebsiteTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
+        foreach (var tab in new[] { GuideTab, ReviewTab, ReplyTab, CallsTab, NotesTab, TimelineTab, WebsiteTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
             tab.Visibility = visible.Contains(tab) ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceTabs.SelectedItem = visible[0];
     }
@@ -191,6 +226,45 @@ public sealed partial class MainWindow : Window
         _caseRecords = (await _cases.LoadAsync()).ToList();
         ApplyFilter();
         RefreshDashboard();
+        RefreshGuidance();
+    }
+
+    private void RefreshGuidance()
+    {
+        if (NextStepBar is null || NextStepButton is null) return;
+        string title; string message; string button; string destination;
+        if (_currentCase is null && _selected is null)
+        {
+            title = "Select a message or saved case";
+            message = "Configure and sync the dedicated inbox if needed, then choose one suspicious message. Existing work is under Saved cases.";
+            button = "Open inbox and cases"; destination = "Inbox";
+        }
+        else if (_currentCase is null)
+        {
+            title = "Create a case from the selected message";
+            message = "Review its risk signals, then use New case in the top command bar so the conversation and notes are preserved.";
+            button = "Review selected message"; destination = "Case";
+        }
+        else if (_currentCase.EngagementStopped || _currentCase.Status is CaseStatus.Reported or CaseStatus.Closed || _currentCase.EngagementStage == "Ready to report")
+        {
+            title = "Finish the case";
+            message = "Generate the redacted report, export its hashed evidence package, and verify the ZIP before submitting it manually.";
+            button = "Report and export"; destination = "Report";
+        }
+        else if (_currentCase.Checklist.Take(3).Any(item => !item.Completed))
+        {
+            title = "Investigate the saved case";
+            message = "Review the website, email headers, extracted clues, and investigation checklist before deciding whether to engage.";
+            button = "Continue investigation"; destination = "Investigate";
+        }
+        else
+        {
+            title = "Plan the next safe action";
+            message = "Set an objective and limits, then prepare one privacy-checked manual reply or move directly to reporting.";
+            button = "Open safe engagement"; destination = "Engage";
+        }
+        NextStepBar.Title = title; NextStepBar.Message = message;
+        NextStepButton.Content = button; NextStepButton.Tag = destination;
     }
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
@@ -384,6 +458,7 @@ public sealed partial class MainWindow : Window
         AttachmentList.ItemsSource = _selected.Attachments;
         DuplicateList.ItemsSource = null;
         ReminderList.ItemsSource = null;
+        RefreshGuidance();
         _ = RestoreDraftAsync();
     }
 
@@ -490,6 +565,7 @@ public sealed partial class MainWindow : Window
         await LoadCasesAsync();
         ShowStoppedState();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+        RefreshGuidance();
         await ShowMessage(confirmation);
     }
 
@@ -548,6 +624,7 @@ public sealed partial class MainWindow : Window
         ShowForensics(_selected);
         ShowIndicators(_currentCase.Messages);
         RefreshCaseTools();
+        RefreshGuidance();
         RefreshEngagementPlan();
         RefreshConversationSummary();
         RefreshCaseBriefing();
