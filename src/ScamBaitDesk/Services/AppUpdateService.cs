@@ -1,10 +1,13 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 
 namespace ScamBaitDesk.Services;
 
 public sealed class AppUpdateService
 {
-    public const int CurrentBuild = 38;
+    public const int CurrentBuild = 39;
+    private const string BuildNumberApiUrl = "https://api.github.com/repos/mark36ph/ScamBaitDesk/contents/build-number.txt?ref=main";
     private const string BuildNumberUrl = "https://raw.githubusercontent.com/mark36ph/ScamBaitDesk/main/build-number.txt";
     public sealed record UpdateCheckResult(bool IsAvailable, int CurrentBuild, int LatestBuild, string Message);
 
@@ -17,7 +20,21 @@ public sealed class AppUpdateService
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        var text = (await client.GetStringAsync($"{BuildNumberUrl}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}", cancellationToken)).Trim();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("ScamBaitDesk-Updater/1.0");
+        client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true };
+        string text;
+        try
+        {
+            var json = await client.GetStringAsync($"{BuildNumberApiUrl}&t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", cancellationToken);
+            using var document = JsonDocument.Parse(json);
+            var encoded = document.RootElement.GetProperty("content").GetString()?.Replace("\n", string.Empty)
+                ?? throw new InvalidOperationException("GitHub returned no build-number content.");
+            text = Encoding.UTF8.GetString(Convert.FromBase64String(encoded)).Trim();
+        }
+        catch (Exception apiError) when (apiError is not OperationCanceledException)
+        {
+            text = (await client.GetStringAsync($"{BuildNumberUrl}?t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", cancellationToken)).Trim();
+        }
         if (!int.TryParse(text, out var latestBuild)) throw new InvalidOperationException("GitHub returned an invalid build number.");
         var isAvailable = latestBuild > CurrentBuild;
         return new UpdateCheckResult(isAvailable, CurrentBuild, latestBuild,

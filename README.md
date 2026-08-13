@@ -115,4 +115,6 @@ From the repository root, run `PowerShell -ExecutionPolicy Bypass -File .\script
 
 The same updater can be launched from **Settings → Application updates**. **Check for updates** retrieves one published numeric build value rather than fetching or comparing repository files. **Update app now** performs that same preflight check and closes the app only when a newer build exists. A compact progress window then reports each update stage, and ScamBait Desk reopens automatically. Check and update failures are shown without silently closing the app.
 
+The update check reads the build number from GitHub's repository API to avoid stale raw-content CDN responses, with the raw file retained as a fallback.
+
 Updater diagnostics are written to `%LOCALAPPDATA%\ScamBaitDesk\update.log`; a failure dialog includes both the underlying command error and the log location.
