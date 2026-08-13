@@ -46,6 +46,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         SetWindowIcon();
         Activated += (_, _) => SetWindowIcon();
+        Content.Loaded += (_, _) => SetWindowIcon();
         NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
@@ -78,6 +79,12 @@ public sealed partial class MainWindow : Window
     private void ShellMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ShellMenu.SelectedItem is ListViewItem item && item.Tag is string destination) NavigateShell(destination);
+    }
+
+    private void SettingsNav_Click(object sender, RoutedEventArgs e)
+    {
+        ShellMenu.SelectedItem = null;
+        NavigateShell("Settings");
     }
 
     private void NavigateShell(string destination)
@@ -152,8 +159,8 @@ public sealed partial class MainWindow : Window
         {
             "Home" => new[] { InsightTab },
             "Inbox" => new[] { ReviewTab },
-            "Case" => new[] { ReviewTab, NotesTab, TimelineTab, PlanTab },
-            "Engage" => new[] { ReplyTab, CallsTab },
+            "Case" => new[] { ReviewTab, NotesTab, TimelineTab },
+            "Engage" => new[] { PlanTab, ReplyTab, CallsTab },
             "Investigate" => new[] { InsightTab, HeadersTab, IndicatorsTab, ToolsTab },
             "Report" => new[] { ReportTab },
             "Settings" => new[] { SettingsTab },

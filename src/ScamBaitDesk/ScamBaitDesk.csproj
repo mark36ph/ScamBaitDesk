@@ -21,5 +21,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\ScamBaitDesk-v2.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Assets\AppLogoV2*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
