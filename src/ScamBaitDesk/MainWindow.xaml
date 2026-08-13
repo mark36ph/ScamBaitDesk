@@ -12,6 +12,7 @@
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <AppBarButton Icon="Contact" Label="Personas" Click="Personas_Click"/>
+            <AppBarToggleButton x:Name="EmergencyStopButton" Icon="Stop" Label="GLOBAL SEND STOP" Click="EmergencyStop_Click"/>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>
@@ -48,6 +49,13 @@
                      <StackPanel Padding="4" Spacing="3"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{x:Bind Summary}" FontSize="12" TextWrapping="Wrap" Opacity="0.65"/></StackPanel>
                     </DataTemplate></ListView.ItemTemplate>
                    </ListView>
+                  </TabViewItem>
+                  <TabViewItem Header="Dashboard" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="10" Spacing="8">
+                      <ItemsControl x:Name="DashboardList"><ItemsControl.ItemTemplate><DataTemplate x:DataType="local:DashboardMetric"><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}"/><TextBlock Grid.Column="1" Text="{x:Bind Value}" FontWeight="SemiBold"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                      <TextBlock Text="Pending actions" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                      <ListView x:Name="PendingList" MaxHeight="300"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord"><StackPanel Margin="0,4"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold"/><TextBlock Text="{x:Bind Summary}" FontSize="12" Opacity="0.7"/></StackPanel></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
                   </TabViewItem>
                 </TabView>
             </Grid>
@@ -160,6 +168,19 @@
                             <Button Content="Copy report" Click="CopyReport_Click"/>
                             <Button Content="Export evidence ZIP" Click="ExportEvidence_Click"/>
                         </StackPanel>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem Header="Case tools" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Attachment quarantine" Message="Only attachment names, declared types, sizes, and content IDs are shown. The app provides no open, preview, save, or execute action."/>
+                        <TextBlock Text="Inert attachment metadata" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="AttachmentList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:AttachmentRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Possible duplicate cases" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="DuplicateList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:DuplicateCaseMatch"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Manual follow-up reminders" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add reminder" Click="AddReminder_Click"/><Button Content="Mark selected complete" Click="CompleteReminder_Click"/></StackPanel>
+                        <ListView x:Name="ReminderList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:FollowUpReminder"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <Button Content="Export lightweight case summary" Click="ExportSummary_Click" HorizontalAlignment="Left"/>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
             </TabView>

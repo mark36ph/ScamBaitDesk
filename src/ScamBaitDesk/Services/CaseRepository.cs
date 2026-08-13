@@ -47,6 +47,7 @@ public sealed class CaseRepository
             {
                 record.OutboundMessages ??= [];
                 record.EngagementStopReason ??= string.Empty;
+                record.Reminders ??= [];
                 records.Add(record);
             }
         }

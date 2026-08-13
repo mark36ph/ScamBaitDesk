@@ -31,6 +31,11 @@ public sealed class ImapInboxService
                 item.Date,
                 body.Length > 30_000 ? body[..30_000] : body)
             {
+                Attachments = item.Attachments.Select(entity => new AttachmentRecord(
+                    entity.ContentDisposition?.FileName ?? entity.ContentType.Name ?? "unnamed-attachment",
+                    entity.ContentType.MimeType,
+                    entity.ContentDisposition?.Size,
+                    entity.ContentId ?? string.Empty)).ToList(),
                 Headers = item.Headers
                     .GroupBy(header => header.Field, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(

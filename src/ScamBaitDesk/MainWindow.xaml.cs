@@ -18,12 +18,15 @@ public sealed partial class MainWindow : Window
     private readonly EngagementSafetyService _engagementSafety = new();
     private readonly SmtpEngagementService _smtp = new();
     private readonly EngagementWorkspaceService _workspace = new();
+    private readonly CaseIntelligenceService _intelligence = new();
+    private readonly SafetyStateService _safetyState = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
     private List<InboxMessage> _messages = [];
     private List<CaseRecord> _caseRecords = [];
     private List<PersonaProfile> _personas = [];
+    private bool _globalEmergencyStop;
 
     public MainWindow()
     {
@@ -36,7 +39,15 @@ public sealed partial class MainWindow : Window
         TemplateBox.ItemsSource = _workspace.Templates;
         TemplateBox.SelectedIndex = 0;
         _ = LoadPersonasAsync();
+        _ = LoadSafetyStateAsync();
         _ = LoadCasesAsync();
+    }
+
+    private async Task LoadSafetyStateAsync()
+    {
+        _globalEmergencyStop = await _safetyState.IsEmergencyStopEnabledAsync();
+        EmergencyStopButton.IsChecked = _globalEmergencyStop;
+        ReviewDraft();
     }
 
     private async Task LoadPersonasAsync()
@@ -51,6 +62,7 @@ public sealed partial class MainWindow : Window
     {
         _caseRecords = (await _cases.LoadAsync()).ToList();
         ApplyFilter();
+        RefreshDashboard();
     }
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
@@ -109,6 +121,9 @@ public sealed partial class MainWindow : Window
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
         ShowIndicators(ConversationService.FindConversation(_selected, _messages));
+        AttachmentList.ItemsSource = _selected.Attachments;
+        DuplicateList.ItemsSource = null;
+        ReminderList.ItemsSource = null;
     }
 
     private void ShowIndicators(IEnumerable<InboxMessage> messages) =>
@@ -211,6 +226,7 @@ public sealed partial class MainWindow : Window
         StatusBox.SelectedIndex = IndexFromStatus(_currentCase.Status);
         ShowForensics(_selected);
         ShowIndicators(_currentCase.Messages);
+        RefreshCaseTools();
     }
 
     private void ShowForensics(InboxMessage? message)
@@ -290,7 +306,7 @@ public sealed partial class MainWindow : Window
         PrivacyBar.Message = review.Summary;
         PrivacyBar.Severity = !review.CanSend ? InfoBarSeverity.Error : review.Findings.Count > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
         PrivacyFindings.ItemsSource = review.Findings;
-        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null && _currentCase?.EngagementStopped != true;
+        SendButton.IsEnabled = review.CanSend && !string.IsNullOrWhiteSpace(DraftBox.Text) && _selected is not null && _currentCase?.EngagementStopped != true && !_globalEmergencyStop;
     }
 
     private async void SendReply_Click(object sender, RoutedEventArgs e)
@@ -300,6 +316,7 @@ public sealed partial class MainWindow : Window
         if (!review.CanSend) { await ShowMessage("Sending is blocked until all privacy-guard issues are removed."); return; }
         if (_currentCase is null) { await ShowMessage("Save or open the case before sending so the engagement has an audit trail."); return; }
         if (_currentCase.EngagementStopped) { await ShowMessage("This engagement was permanently stopped. Sending is disabled for this case."); return; }
+        if (_globalEmergencyStop) { await ShowMessage("The global emergency stop is enabled. Disable it before any outbound message can be sent."); return; }
 
         var recent = _currentCase.OutboundMessages.Where(item => item.SentAt >= DateTimeOffset.Now.AddHours(-1)).OrderByDescending(item => item.SentAt).ToList();
         if (recent.Count >= 5) { await ShowMessage("Rate limit reached: no more than five messages per case per hour."); return; }
@@ -425,6 +442,84 @@ public sealed partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(ReportBox.Text)) return;
         var package = new DataPackage(); package.SetText(ReportBox.Text); Clipboard.SetContent(package);
+    }
+
+    private void RefreshDashboard()
+    {
+        if (DashboardList is null || PendingList is null) return;
+        DashboardList.ItemsSource = _intelligence.Dashboard(_caseRecords);
+        PendingList.ItemsSource = _caseRecords.Where(record =>
+            record.Status != CaseStatus.Closed || record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
+            .OrderByDescending(record => record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
+            .ThenByDescending(record => record.Analysis?.Score ?? 0).ToList();
+    }
+
+    private void RefreshCaseTools()
+    {
+        if (_currentCase is null) return;
+        AttachmentList.ItemsSource = _currentCase.Messages.SelectMany(message => message.Attachments).ToList();
+        DuplicateList.ItemsSource = _intelligence.FindDuplicates(_currentCase, _caseRecords);
+        ReminderList.ItemsSource = _currentCase.Reminders.OrderBy(reminder => reminder.Completed).ThenBy(reminder => reminder.DueAt).ToList();
+    }
+
+    private async void EmergencyStop_Click(object sender, RoutedEventArgs e)
+    {
+        var requested = EmergencyStopButton.IsChecked == true;
+        if (requested)
+        {
+            var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Enable global send stop?", Content = "This immediately disables outbound sending across every case. Inbox review, evidence, reports, and drafts remain available.", PrimaryButtonText = "Enable stop", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) { EmergencyStopButton.IsChecked = false; return; }
+        }
+        else if (_globalEmergencyStop)
+        {
+            var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Re-enable outbound sending?", Content = "Manual confirmations, privacy checks, rate limits, and per-case stops will still apply.", PrimaryButtonText = "Re-enable", CloseButtonText = "Keep stopped", DefaultButton = ContentDialogButton.Close };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) { EmergencyStopButton.IsChecked = true; return; }
+        }
+        _globalEmergencyStop = requested;
+        await _safetyState.SetEmergencyStopAsync(requested);
+        ReviewDraft();
+    }
+
+    private async void AddReminder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        var date = new DatePicker { Header = "Date", Date = DateTimeOffset.Now.AddDays(1) };
+        var time = new TimePicker { Header = "Time", Time = new TimeSpan(10, 0, 0) };
+        var note = new TextBox { Header = "Reminder note", Text = "Review for a reply" };
+        var panel = new StackPanel { Spacing = 10 }; panel.Children.Add(date); panel.Children.Add(time); panel.Children.Add(note);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Manual follow-up reminder", Content = panel, PrimaryButtonText = "Add", CloseButtonText = "Cancel" };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var local = date.Date.Date + time.Time;
+        var due = new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local));
+        _currentCase.Reminders.Add(new FollowUpReminder(Guid.NewGuid(), due, string.IsNullOrWhiteSpace(note.Text) ? "Review case" : note.Text.Trim(), false));
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reminder", $"Manual follow-up scheduled for {due.LocalDateTime:g}. No message will be sent automatically."));
+        await _cases.SaveAsync(_currentCase); RefreshCaseTools(); await LoadCasesAsync();
+    }
+
+    private async void CompleteReminder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || ReminderList.SelectedItem is not FollowUpReminder selected) { await ShowMessage("Select a reminder first."); return; }
+        var index = _currentCase.Reminders.FindIndex(item => item.Id == selected.Id);
+        if (index < 0) return;
+        _currentCase.Reminders[index] = selected with { Completed = true };
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reminder completed", selected.Note));
+        await _cases.SaveAsync(_currentCase); RefreshCaseTools(); await LoadCasesAsync();
+    }
+
+    private async void ExportSummary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        var picker = new Windows.Storage.Pickers.FileSavePicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary, SuggestedFileName = $"ScamBait-summary-{_currentCase.Id:N}" };
+        picker.FileTypeChoices.Add("Text summary", new List<string> { ".txt" });
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSaveFileAsync(); if (file is null) return;
+        var summary = EngagementWorkspaceService.BuildReport(_currentCase, "Case summary");
+        await Windows.Storage.FileIO.WriteTextAsync(file, summary);
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Summary export", "Exported a lightweight redacted text summary."));
+        await _cases.SaveAsync(_currentCase);
     }
 
     private async Task ShowMessage(string message) => await new ContentDialog

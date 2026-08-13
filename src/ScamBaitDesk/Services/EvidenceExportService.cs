@@ -36,6 +36,15 @@ public sealed class EvidenceExportService
             Add(archive, hashes, "notes.txt", ScamAnalysisService.Redact(record.Notes));
             Add(archive, hashes, "draft-reply.txt", ScamAnalysisService.Redact(record.DraftReply));
             Add(archive, hashes, "timeline.json", JsonSerializer.Serialize(record.Timeline, JsonOptions));
+            Add(archive, hashes, "reminders.json", JsonSerializer.Serialize(record.Reminders, JsonOptions));
+            Add(archive, hashes, "attachment-metadata.json", JsonSerializer.Serialize(record.Messages.SelectMany(message => message.Attachments.Select(attachment => new
+            {
+                MessageId = message.Id,
+                attachment.FileName,
+                attachment.MediaType,
+                attachment.Size,
+                attachment.ContentId
+            })), JsonOptions));
             Add(archive, hashes, "outbound-log.json", JsonSerializer.Serialize(record.OutboundMessages.Select(item => new
             {
                 item.SentAt,
@@ -58,7 +67,7 @@ public sealed class EvidenceExportService
 
             var manifest = JsonSerializer.Serialize(new
             {
-                Format = "ScamBait Desk evidence export v2",
+                Format = "ScamBait Desk evidence export v3",
                 ExportedAtUtc = DateTimeOffset.UtcNow,
                 CaseId = record.Id,
                 Redaction = "Message bodies, sender display, subjects, notes, and drafts were processed by the local redactor. Headers are preserved as evidence and may contain personal data.",

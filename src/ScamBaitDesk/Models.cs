@@ -18,6 +18,13 @@ public sealed record InboxMessage(
     public string ReceivedDisplay => ReceivedAt.LocalDateTime.ToString("g");
     public string ConversationKey => ConversationService.GetKey(this);
     public Dictionary<string, List<string>> Headers { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<AttachmentRecord> Attachments { get; init; } = [];
+}
+
+public sealed record AttachmentRecord(string FileName, string MediaType, long? Size, string ContentId)
+{
+    public string SizeDisplay => Size is long size ? $"{size:N0} bytes" : "Size unavailable";
+    public string Display => $"{FileName} · {MediaType} · {SizeDisplay}";
 }
 
 public sealed record RiskSignal(string Label, string Detail, int Weight);
@@ -72,6 +79,18 @@ public sealed record ReplyTemplate(string Name, string ScamType, string Body)
     public string Display => $"{Name} · {ScamType}";
 }
 
+public sealed record FollowUpReminder(Guid Id, DateTimeOffset DueAt, string Note, bool Completed)
+{
+    public string Display => $"{DueAt.LocalDateTime:g} · {(Completed ? "Done" : DueAt <= DateTimeOffset.Now ? "DUE" : "Pending")} · {Note}";
+}
+
+public sealed record DuplicateCaseMatch(Guid CaseId, string Title, int Score, string Reason)
+{
+    public string Display => $"{Score}% · {Title} — {Reason}";
+}
+
+public sealed record DashboardMetric(string Label, string Value);
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";
@@ -124,6 +143,7 @@ public sealed class CaseRecord
     public bool EngagementStopped { get; set; }
     public DateTimeOffset? EngagementStoppedAt { get; set; }
     public string EngagementStopReason { get; set; } = string.Empty;
+    public List<FollowUpReminder> Reminders { get; set; } = [];
     public string StatusDisplay => Status switch
     {
         CaseStatus.AwaitingVerification => "Awaiting verification",
