@@ -48,20 +48,29 @@ function Set-UpdateStage([string]$message, [int]$percent) {
 }
 
 function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [int]$maximumPercent, [string]$failureMessage) {
-    $stdoutPath = Join-Path $env:TEMP "ScamBaitDesk-update-stdout.txt"
-    $stderrPath = Join-Path $env:TEMP "ScamBaitDesk-update-stderr.txt"
-    Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
-    $process = Start-Process -FilePath $fileName -ArgumentList $arguments -WorkingDirectory $repository -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $fileName
+    $startInfo.Arguments = $arguments -join " "
+    $startInfo.WorkingDirectory = $repository
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) { throw "$failureMessage`r`n`r`nThe process could not be started." }
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
     while (-not $process.HasExited) {
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 100
-        $process.Refresh()
         if ($progress.Value -lt $maximumPercent) { $progress.Value++ }
     }
     $process.WaitForExit()
-    $exitCode = $process.ExitCode
-    $stdout = if (Test-Path $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
-    $stderr = if (Test-Path $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
+    [int]$exitCode = $process.ExitCode
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    $process.Dispose()
     "[$(Get-Date -Format o)] Exit ${exitCode}: $fileName $($arguments -join ' ')`r`n$stdout$stderr" | Add-Content -LiteralPath $logPath
     if ($exitCode -ne 0) {
         $detail = if ([string]::IsNullOrWhiteSpace($stderr)) { $stdout.Trim() } else { $stderr.Trim() }
