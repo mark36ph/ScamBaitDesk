@@ -23,7 +23,8 @@ public sealed class ImapInboxService
         try
         {
             var sent = client.GetFolder(SpecialFolder.Sent);
-            await FetchFolderAsync(sent, messages, maximum, true, cancellationToken);
+            if (sent is not null)
+                await FetchFolderAsync(sent, messages, maximum, true, cancellationToken);
         }
         catch (FolderNotFoundException) { }
         await client.DisconnectAsync(true, cancellationToken);

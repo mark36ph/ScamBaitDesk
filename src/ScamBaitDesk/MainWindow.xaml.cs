@@ -46,7 +46,6 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         SetWindowIcon();
         Activated += (_, _) => SetWindowIcon();
-        Content.Loaded += (_, _) => SetWindowIcon();
         NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
