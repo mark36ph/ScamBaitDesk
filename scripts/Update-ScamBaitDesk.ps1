@@ -1,14 +1,60 @@
 $ErrorActionPreference = "Stop"
 
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+$window = New-Object System.Windows.Forms.Form
+$window.Text = "Updating ScamBait Desk"
+$window.Size = New-Object System.Drawing.Size(460, 180)
+$window.StartPosition = "CenterScreen"
+$window.FormBorderStyle = "FixedDialog"
+$window.MaximizeBox = $false
+$window.MinimizeBox = $false
+$window.ControlBox = $false
+$window.TopMost = $true
+
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "Updating ScamBait Desk"
+$title.Font = New-Object System.Drawing.Font("Segoe UI", 15, [System.Drawing.FontStyle]::Bold)
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(22, 18)
+$window.Controls.Add($title)
+
+$stage = New-Object System.Windows.Forms.Label
+$stage.Text = "Preparing update..."
+$stage.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$stage.AutoSize = $true
+$stage.Location = New-Object System.Drawing.Point(24, 62)
+$window.Controls.Add($stage)
+
+$progress = New-Object System.Windows.Forms.ProgressBar
+$progress.Style = "Marquee"
+$progress.MarqueeAnimationSpeed = 25
+$progress.Size = New-Object System.Drawing.Size(400, 20)
+$progress.Location = New-Object System.Drawing.Point(24, 96)
+$window.Controls.Add($progress)
+
+function Set-UpdateStage([string]$message) {
+    $stage.Text = $message
+    $window.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+$window.Show()
+[System.Windows.Forms.Application]::DoEvents()
+
+try {
 $repository = Split-Path -Parent $PSScriptRoot
 Set-Location $repository
 
 # When launched from inside the app, give its process time to close and release build outputs.
 Start-Sleep -Seconds 2
 
+Set-UpdateStage "Downloading the latest version..."
 git pull
 if ($LASTEXITCODE -ne 0) { throw "git pull failed." }
 
+Set-UpdateStage "Building the application..."
 dotnet build .\ScamBaitDesk.sln -c Debug -p:Platform=x64 -p:PublishProfile=
 if ($LASTEXITCODE -ne 0) { throw "The Windows build failed; the installed app was not changed." }
 
@@ -28,14 +74,27 @@ $version = "1.$monthVersion.$dayHourVersion.$minuteSecondVersion"
 $xml.Package.Identity.Version = $version
 $xml.Save($manifest.FullName)
 
+Set-UpdateStage "Installing the update..."
 Add-AppxPackage -Register $manifest.FullName -ForceApplicationShutdown
-Write-Host "ScamBait Desk updated and registered as version $version." -ForegroundColor Green
 
+Set-UpdateStage "Reopening ScamBait Desk..."
 Start-Sleep -Seconds 1
 $installedApp = Get-StartApps | Where-Object Name -EQ "ScamBait Desk" | Select-Object -First 1
 if ($installedApp) {
     Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($installedApp.AppID)"
-    Write-Host "ScamBait Desk reopened." -ForegroundColor Green
 } else {
-    Write-Warning "The update succeeded, but ScamBait Desk could not be found in Start Apps. Open it from Start manually."
+    throw "The update succeeded, but ScamBait Desk could not be found in Start Apps. Open it from Start manually."
+}
+}
+catch {
+    [System.Windows.Forms.MessageBox]::Show(
+        "ScamBait Desk could not be updated.`r`n`r`n$($_.Exception.Message)",
+        "Update failed",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    ) | Out-Null
+}
+finally {
+    $window.Close()
+    $window.Dispose()
 }

@@ -31,6 +31,7 @@ public sealed class AppUpdateService
         };
         start.ArgumentList.Add("-NoProfile");
         start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-STA");
         start.ArgumentList.Add("-WindowStyle");
         start.ArgumentList.Add("Hidden");
         start.ArgumentList.Add("-ExecutionPolicy");
