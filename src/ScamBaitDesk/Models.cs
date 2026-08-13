@@ -140,6 +140,22 @@ public sealed record SafeQuestion(string Category, string Text)
     public string Display => $"{Category} · {Text}";
 }
 
+public sealed record ConversationMemoryItem(string Category, string Value, string Source, string Status)
+{
+    public string Display => $"{Category} · {Value} — {Status} · {Source}";
+}
+
+public sealed record PlannedQuestion(string Priority, string Category, string Question, string Reason)
+{
+    public string Display => $"{Priority} · {Category} — {Question}";
+}
+
+public sealed record ReplyCoachOption(string Name, string Objective, string Draft, string Rationale, string Caution)
+{
+    public string Display => $"{Name} · {Objective}";
+    public string Guidance => $"Why: {Rationale}\nSafety note: {Caution}";
+}
+
 public sealed record EngagementPlaybook(string Name, string Stage, string Objective, IReadOnlyList<string> Steps)
 {
     public string Display => $"{Name} · {Stage}";

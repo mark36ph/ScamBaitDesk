@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
     private readonly GoogleOAuthService _googleOAuth = new();
     private readonly DraftRecoveryService _draftRecovery = new();
     private readonly ConversationSummaryService _conversationSummary = new();
+    private readonly ConversationCoachService _conversationCoach = new();
     private readonly MailDiagnosticService _mailDiagnostic = new();
     private readonly AppUpdateService _appUpdate = new();
     private readonly VpnIntegrationService _vpn = new();
@@ -787,6 +788,7 @@ public sealed partial class MainWindow : Window
         RefreshGuidance();
         RefreshEngagementPlan();
         RefreshConversationSummary();
+        RefreshConversationToolkit();
         RefreshCaseBriefing();
         RefreshCallWorkspace();
         _ = RestoreDraftAsync();
@@ -1039,6 +1041,22 @@ public sealed partial class MainWindow : Window
         DraftBox.Text = _intelligence.SuggestLocalReply(_currentCase) + (persona is null ? string.Empty : $"\n\n{persona.Name}");
     }
 
+    private void ReplyCoachBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ReplyCoachGuidance.Text = ReplyCoachBox.SelectedItem is ReplyCoachOption option
+            ? option.Guidance
+            : "Select a coached objective to see why it may fit and what safety boundary to keep.";
+    }
+
+    private async void ApplyReplyCoach_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || ReplyCoachBox.SelectedItem is not ReplyCoachOption option) { await ShowMessage("Open a case and select a Reply Coach option first."); return; }
+        var review = _engagementSafety.Review(option.Draft);
+        if (!review.CanSend) { await ShowMessage("The generated option did not pass the outbound safety guard and was not applied."); return; }
+        var persona = PersonaBox.SelectedItem as PersonaProfile;
+        DraftBox.Text = option.Draft + (persona is null ? string.Empty : $"\n\n{persona.Name}");
+    }
+
     private async void StopEngagement_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null) { await ShowMessage("Open or save a case before stopping an engagement."); return; }
@@ -1144,6 +1162,29 @@ public sealed partial class MainWindow : Window
         UnansweredQuestionList.ItemsSource = summary.UnansweredQuestions;
     }
 
+    private void RefreshConversationToolkit()
+    {
+        if (_currentCase is null)
+        {
+            ReplyCoachBox.ItemsSource = null;
+            PlannedQuestionList.ItemsSource = null;
+            ConversationMemoryList.ItemsSource = null;
+            RecommendedPlaybookBar.Title = "Recommended playbook";
+            RecommendedPlaybookBar.Message = "Open a saved case to detect a likely scam pattern.";
+            return;
+        }
+        var replyOptions = _conversationCoach.SuggestReplies(_currentCase);
+        ReplyCoachBox.ItemsSource = replyOptions;
+        if (replyOptions.Count > 0) ReplyCoachBox.SelectedIndex = 0;
+        PlannedQuestionList.ItemsSource = _conversationCoach.PlanQuestions(_currentCase);
+        ConversationMemoryList.ItemsSource = _conversationCoach.BuildMemory(_currentCase);
+        var recommended = _conversationCoach.RecommendPlaybook(_currentCase, _workspace.Playbooks);
+        RecommendedPlaybookBar.Title = $"Recommended: {recommended.Name}";
+        RecommendedPlaybookBar.Message = $"Objective: {recommended.Objective}. This is a local text-pattern recommendation; review it before applying.";
+        RecommendedPlaybookBar.Severity = InfoBarSeverity.Informational;
+        RecommendedPlaybookBar.IsOpen = true;
+    }
+
     private void RefreshCaseBriefing()
     {
         if (_currentCase is null) { CaseBriefingText.Text = "Open a case to generate a briefing."; return; }
@@ -1155,6 +1196,13 @@ public sealed partial class MainWindow : Window
 
     private void PlaybookBox_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         PlaybookStepList.ItemsSource = (PlaybookBox.SelectedItem as EngagementPlaybook)?.Steps;
+
+    private async void SelectRecommendedPlaybook_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open a saved case first."); return; }
+        var recommended = _conversationCoach.RecommendPlaybook(_currentCase, _workspace.Playbooks);
+        PlaybookBox.SelectedItem = _workspace.Playbooks.FirstOrDefault(playbook => playbook.Name == recommended.Name);
+    }
 
     private async void ApplyPlaybook_Click(object sender, RoutedEventArgs e)
     {
@@ -1225,6 +1273,12 @@ public sealed partial class MainWindow : Window
         DraftBox.Text = string.IsNullOrWhiteSpace(DraftBox.Text) ? question.Text : $"{DraftBox.Text.Trim()}\n\n{question.Text}";
     }
 
+    private async void ApplyPlannedQuestion_Click(object sender, RoutedEventArgs e)
+    {
+        if (PlannedQuestionList.SelectedItem is not PlannedQuestion question) { await ShowMessage("Select a planned question first."); return; }
+        DraftBox.Text = string.IsNullOrWhiteSpace(DraftBox.Text) ? question.Question : $"{DraftBox.Text.Trim()}\n\n{question.Question}";
+    }
+
     private async void AddClaim_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
@@ -1237,7 +1291,7 @@ public sealed partial class MainWindow : Window
         var item = new SenderClaim(Guid.NewGuid(), DateTimeOffset.Now, category.SelectedItem?.ToString() ?? "Other", ScamAnalysisService.Redact(claim.Text.Trim()), status.SelectedItem?.ToString() ?? "Unverified");
         _currentCase.SenderClaims.Add(item); _currentCase.UpdatedAt = item.RecordedAt;
         _currentCase.Timeline.Add(new CaseEvent(item.RecordedAt, "Sender claim", $"{item.Category}: {item.VerificationStatus}."));
-        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan(); RefreshConversationSummary(); RefreshConversationToolkit();
     }
 
     private async void ContradictClaim_Click(object sender, RoutedEventArgs e)
@@ -1247,7 +1301,7 @@ public sealed partial class MainWindow : Window
         _currentCase.SenderClaims[index] = selected with { VerificationStatus = "Contradicted" };
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Claim contradicted", selected.Category));
-        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan(); RefreshConversationSummary(); RefreshConversationToolkit();
     }
 
     private async void AddSourcedIndicator_Click(object sender, RoutedEventArgs e)
