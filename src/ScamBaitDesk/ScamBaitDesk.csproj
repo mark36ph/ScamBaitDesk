@@ -5,7 +5,7 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>ScamBaitDesk</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\ScamBaitDesk.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\ScamBaitDesk-v2.ico</ApplicationIcon>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
@@ -20,6 +20,6 @@
     <PackageReference Include="MailKit" Version="4.17.0" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Assets\ScamBaitDesk.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\ScamBaitDesk-v2.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

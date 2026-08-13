@@ -84,7 +84,7 @@ public sealed partial class MainWindow : Window
 
     private void SetWindowIcon()
     {
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ScamBaitDesk.ico");
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ScamBaitDesk-v2.ico");
         if (!File.Exists(iconPath)) return;
         AppWindow.SetIcon(iconPath);
         var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
