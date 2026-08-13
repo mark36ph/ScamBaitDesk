@@ -75,7 +75,6 @@ public sealed partial class MainWindow : Window
         CollectionPane.Visibility = destination is "Home" or "Inbox" ? Visibility.Visible : Visibility.Collapsed;
         SetCollectionTabs(destination);
         SetWorkspaceTabs(destination);
-        if (destination == "Settings") _ = OpenSettingsFromNavigationAsync();
     }
 
     private void SetCollectionTabs(string destination)
@@ -97,17 +96,12 @@ public sealed partial class MainWindow : Window
             "Engage" => new[] { ReplyTab },
             "Investigate" => new[] { InsightTab, HeadersTab, IndicatorsTab, ToolsTab },
             "Report" => new[] { ReportTab },
+            "Settings" => new[] { SettingsTab },
             _ => new[] { InsightTab }
         };
-        foreach (var tab in new[] { ReviewTab, ReplyTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab })
+        foreach (var tab in new[] { ReviewTab, ReplyTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
             tab.Visibility = visible.Contains(tab) ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceTabs.SelectedItem = visible[0];
-    }
-
-    private async Task OpenSettingsFromNavigationAsync()
-    {
-        await Task.Yield();
-        Settings_Click(this, new RoutedEventArgs());
     }
 
     private async Task LoadPersonasAsync()
@@ -213,7 +207,10 @@ public sealed partial class MainWindow : Window
 
     private void Monitor_Click(object sender, RoutedEventArgs e)
     {
-        if (MonitorButton.IsChecked == true) { _monitorTimer.Start(); MonitorBar.Title = "Inbox monitor on"; MonitorBar.Message = "Checking read-only every 60 seconds while the app is open."; MonitorBar.Severity = InfoBarSeverity.Success; }
+        var enabled = sender is AppBarToggleButton toggle && toggle.IsChecked == true;
+        MonitorButton.IsChecked = enabled;
+        SettingsMonitorButton.IsChecked = enabled;
+        if (enabled) { _monitorTimer.Start(); MonitorBar.Title = "Inbox monitor on"; MonitorBar.Message = "Checking read-only every 60 seconds while the app is open."; MonitorBar.Severity = InfoBarSeverity.Success; }
         else { _monitorTimer.Stop(); MonitorBar.Title = "Inbox monitor off"; MonitorBar.Message = "No background checks are running."; MonitorBar.Severity = InfoBarSeverity.Informational; }
     }
 

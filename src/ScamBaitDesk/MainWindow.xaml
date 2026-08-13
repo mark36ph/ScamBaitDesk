@@ -15,7 +15,7 @@
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <AppBarToggleButton x:Name="EmergencyStopButton" Icon="Stop" Label="GLOBAL SEND STOP" Click="EmergencyStop_Click"/>
-            <CommandBar.SecondaryCommands><AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/><AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/><AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/><AppBarButton Icon="Contact" Label="Manage personas" Click="Personas_Click"/><AppBarButton Icon="Refresh" Label="Update app" Click="UpdateApp_Click"/></CommandBar.SecondaryCommands>
+            <CommandBar.SecondaryCommands><AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/><AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/><AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/><AppBarButton Icon="Contact" Label="Manage personas" Click="Personas_Click"/></CommandBar.SecondaryCommands>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>
@@ -225,9 +225,17 @@
                         <ListView x:Name="SourcedIndicatorList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ProvenanceIndicator"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
+                <TabViewItem x:Name="SettingsTab" Header="Settings" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="20" Spacing="16" MaxWidth="850" HorizontalAlignment="Left">
+                        <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontSize="28"/>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Mail account" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Configure only your dedicated bait mailbox. Credentials are stored in Windows Credential Locker." TextWrapping="Wrap" Opacity="0.7"/><StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Inbox settings" Click="Settings_Click"/><Button Content="Connect Gmail OAuth" Click="ConnectGmail_Click"/><Button Content="Test connection" Click="TestConnection_Click"/></StackPanel></StackPanel></Border>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Inbox monitoring" Style="{ThemeResource SubtitleTextBlockStyle}"/><InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Inbox monitor off" Message="Enable monitoring to check every 60 seconds while the app is open."/><AppBarToggleButton x:Name="SettingsMonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Application updates" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Pull the latest main branch, rebuild, register the new package, and reopen ScamBait Desk automatically." TextWrapping="Wrap" Opacity="0.7"/><Button Content="Update app now" Click="UpdateApp_Click" HorizontalAlignment="Left" Style="{StaticResource AccentButtonStyle}"/></StackPanel></Border>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel><TextBlock Text="Connection diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}"/><ListView x:Name="DiagnosticList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView></StackPanel></Border>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
                 <TabViewItem x:Name="InsightTab" Header="Conversation insight" IsClosable="False">
                     <ScrollViewer><StackPanel Padding="16" Spacing="12">
-                        <InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Inbox monitor off" Message="Enable monitoring to check for new messages every 60 seconds while the app is open."/>
                         <TextBlock x:Name="ConversationOverview" Text="Open a case to build a local summary." Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
                         <TextBlock Text="Extracted requests and claims" FontWeight="SemiBold"/>
                         <ListView x:Name="ConversationFactList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConversationFact"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
@@ -235,8 +243,6 @@
                         <ItemsControl x:Name="ContradictionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                         <TextBlock Text="Unanswered verification questions" FontWeight="SemiBold"/>
                         <ItemsControl x:Name="UnansweredQuestionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                        <TextBlock Text="Connection diagnostics" FontWeight="SemiBold"/>
-                        <ListView x:Name="DiagnosticList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
             </TabView></Border>

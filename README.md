@@ -94,4 +94,4 @@ The project uses Windows App SDK 2.3.1 and MailKit 4.17.0.
 
 From the repository root, run `PowerShell -ExecutionPolicy Bypass -File .\scripts\Update-ScamBaitDesk.ps1`. The script pulls `main`, builds the app, assigns a monotonically increasing loose-package version, and registers the update in place. This avoids uninstalling the app or disturbing identity-bound credentials.
 
-The same updater can be launched inside ScamBait Desk from the command overflow menu via **Update app**. After confirmation, the app closes to release its binaries and opens PowerShell to complete the update.
+The same updater can be launched from **Settings → Application updates → Update app now**. After confirmation, the app closes to release its binaries, PowerShell completes the update, and ScamBait Desk reopens automatically.

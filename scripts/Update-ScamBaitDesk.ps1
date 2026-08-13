@@ -30,3 +30,12 @@ $xml.Save($manifest.FullName)
 
 Add-AppxPackage -Register $manifest.FullName -ForceApplicationShutdown
 Write-Host "ScamBait Desk updated and registered as version $version." -ForegroundColor Green
+
+Start-Sleep -Seconds 1
+$installedApp = Get-StartApps | Where-Object Name -EQ "ScamBait Desk" | Select-Object -First 1
+if ($installedApp) {
+    Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($installedApp.AppID)"
+    Write-Host "ScamBait Desk reopened." -ForegroundColor Green
+} else {
+    Write-Warning "The update succeeded, but ScamBait Desk could not be found in Start Apps. Open it from Start manually."
+}
