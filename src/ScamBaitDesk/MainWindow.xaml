@@ -184,9 +184,13 @@
                 <TabViewItem x:Name="WebsiteTab" Header="Website safety" IsClosable="False">
                     <ScrollViewer><StackPanel Padding="16" Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
                         <TextBlock Text="Website safety check" Style="{ThemeResource TitleTextBlockStyle}"/>
-                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Safe local inspection" Message="The target website is never contacted or opened. ScamBait Desk examines only the address text until you explicitly approve an external reputation search."/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Start with the local check" Message="Check address locally examines only the text you enter. The website is contacted only if you separately approve Scan live page content; VirusTotal is contacted only if you approve its search."/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Live scan is optional" Message="A live scan makes one limited request to the page, so its operator can see your network IP and request time. JavaScript never runs, forms are never submitted, private networks are blocked, and page content is not saved."/>
                         <TextBox x:Name="WebsiteAddressBox" Header="Website address or domain" PlaceholderText="https://example.com or hxxps://example[.]com" FontFamily="Consolas"/>
-                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Check locally" Click="CheckWebsite_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Use first URL from active case" Click="LoadCaseWebsite_Click"/><Button Content="Search existing VirusTotal report" Click="CheckWebsiteReputation_Click"/></StackPanel>
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Check address locally" Click="CheckWebsite_Click"/><Button x:Name="LiveWebsiteScanButton" Content="Scan live page content" Click="ScanWebsiteContent_Click" Style="{StaticResource AccentButtonStyle}"/><ProgressRing x:Name="WebsiteScanProgress" Width="24" Height="24" IsActive="False" Visibility="Collapsed"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Use first URL from active case" Click="LoadCaseWebsite_Click"/><Button Content="Search existing VirusTotal report" Click="CheckWebsiteReputation_Click"/></StackPanel>
+                        </StackPanel>
                         <InfoBar x:Name="WebsiteResultBar" IsOpen="False" IsClosable="True" Title="Website check"/>
                         <TextBlock Text="Local findings" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                         <ListView x:Name="WebsiteFindingList" MaxHeight="420"><ListView.ItemTemplate><DataTemplate x:DataType="local:WebsiteFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView>

@@ -597,6 +597,63 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private async void ScanWebsiteContent_Click(object sender, RoutedEventArgs e)
+    {
+        WebsiteCheckResult local;
+        try { local = _websiteSafety.Check(WebsiteAddressBox.Text); }
+        catch (Exception ex) { await ShowMessage(ex.Message); return; }
+        var confirmation = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Scan this live page?",
+            Content = $"ScamBait Desk will request this page once:\n\n{local.NormalizedUrl}\n\nThe site can see your network IP and request time. The scanner does not run JavaScript, submit forms, follow non-web links, send cookies, or retain the page content. Redirects, download size, ports, and private-network destinations are restricted.",
+            PrimaryButtonText = "Scan page once",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary) return;
+
+        LiveWebsiteScanButton.IsEnabled = false;
+        WebsiteScanProgress.Visibility = Visibility.Visible;
+        WebsiteScanProgress.IsActive = true;
+        WebsiteResultBar.IsOpen = true;
+        WebsiteResultBar.Title = "Scanning page safely...";
+        WebsiteResultBar.Message = "Downloading at most 1 MB of text without running page code.";
+        WebsiteResultBar.Severity = InfoBarSeverity.Informational;
+        try
+        {
+            var live = await _websiteSafety.ScanPageAsync(local.NormalizedUrl);
+            var combined = local.Findings.Concat(live.Findings).ToList();
+            var score = Math.Min(100, combined.Sum(finding => finding.Weight));
+            var rating = score switch { >= 55 => "High concern", >= 25 => "Suspicious", >= 10 => "Review advised", _ => "No obvious warning found" };
+            WebsiteAddressBox.Text = live.FinalUrl;
+            WebsiteResultBar.Title = $"{rating} · {score}/100 · {combined.Count} combined signal(s)";
+            WebsiteResultBar.Message = $"Page title: {live.PageTitle} · downloaded {live.DownloadBytes:N0} bytes · followed {live.RedirectCount} redirect(s). A low score does not prove the site is safe.";
+            WebsiteResultBar.Severity = score >= 55 ? InfoBarSeverity.Error : score >= 25 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+            WebsiteFindingList.ItemsSource = combined;
+            if (_currentCase is not null)
+            {
+                _currentCase.UpdatedAt = DateTimeOffset.Now;
+                _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Live website scan", $"User approved a restricted content scan of {new Uri(live.FinalUrl).IdnHost}; result: {rating} ({score}/100)."));
+                await _cases.SaveAsync(_currentCase);
+                TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+            }
+        }
+        catch (Exception ex)
+        {
+            WebsiteResultBar.Title = "Live scan stopped";
+            WebsiteResultBar.Message = ex.Message;
+            WebsiteResultBar.Severity = InfoBarSeverity.Error;
+            WebsiteFindingList.ItemsSource = local.Findings;
+        }
+        finally
+        {
+            WebsiteScanProgress.IsActive = false;
+            WebsiteScanProgress.Visibility = Visibility.Collapsed;
+            LiveWebsiteScanButton.IsEnabled = true;
+        }
+    }
+
     private async void CheckWebsiteReputation_Click(object sender, RoutedEventArgs e)
     {
         WebsiteCheckResult result;

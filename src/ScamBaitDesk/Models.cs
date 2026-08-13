@@ -113,6 +113,13 @@ public sealed record WebsiteCheckResult(string NormalizedUrl, string Host, int S
     public string Summary => $"{Rating} · {Score}/100 · {Findings.Count} local signal(s)";
 }
 
+public sealed record WebsiteLiveScanResult(string FinalUrl, string PageTitle, int DownloadBytes, int RedirectCount, IReadOnlyList<WebsiteFinding> Findings)
+{
+    public int Score => Math.Min(100, Findings.Sum(finding => finding.Weight));
+    public string Rating => Score switch { >= 55 => "High concern", >= 25 => "Suspicious", >= 10 => "Review advised", _ => "No obvious page-content warning" };
+    public string Summary => $"{Rating} · {Score}/100 · {Findings.Count} live content signal(s)";
+}
+
 public sealed record SenderClaim(Guid Id, DateTimeOffset RecordedAt, string Category, string Claim, string VerificationStatus)
 {
     public string Display => $"{Category} · {VerificationStatus} — {Claim}";

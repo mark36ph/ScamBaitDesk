@@ -59,6 +59,7 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Verifies exported evidence ZIP contents against their SHA-256 manifest entirely offline.
 - Shows a recent case-activity feed on the dashboard.
 - Provides a prominent standalone Website check from the sidebar, Start Here page, and command bar; it checks address structure locally without contacting the target and opens an existing VirusTotal report search only after explicit approval.
+- Performs an optional, explicitly approved live page-content scan without running JavaScript or submitting forms; it blocks private-network destinations, restricts ports and redirects, caps downloads at 1 MB, and flags credential forms, external submissions, authentication codes, advance fees, crypto, gift cards, remote-access tools, urgency, hidden frames, and script-obfuscation indicators.
 - Replaces the empty dashboard workspace with a state-aware Start Here guide, plain-language tabs, guarded workflow shortcuts, and a recommended next step for the active message or case.
 - Maintains a redacted ledger of sender claims and their verification status.
 - Offers a safe verification-question bank that only inserts text into the manual draft.
