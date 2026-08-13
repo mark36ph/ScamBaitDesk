@@ -94,4 +94,4 @@ The project uses Windows App SDK 2.3.1 and MailKit 4.17.0.
 
 From the repository root, run `PowerShell -ExecutionPolicy Bypass -File .\scripts\Update-ScamBaitDesk.ps1`. The script pulls `main`, builds the app, assigns a monotonically increasing loose-package version, and registers the update in place. This avoids uninstalling the app or disturbing identity-bound credentials.
 
-The same updater can be launched from **Settings → Application updates → Update app now**. After confirmation, the app closes, a compact progress window reports each update stage, and ScamBait Desk reopens automatically. Update failures are shown in an error dialog.
+The same updater can be launched from **Settings → Application updates**. **Check for updates** compares the local checkout with `origin/main` while the app remains open. **Update app now** performs that same preflight check and closes the app only when a newer commit exists. A compact progress window then reports each update stage, and ScamBait Desk reopens automatically. Check and update failures are shown without silently closing the app.

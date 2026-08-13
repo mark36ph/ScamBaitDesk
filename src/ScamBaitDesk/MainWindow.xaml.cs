@@ -201,6 +201,8 @@ public sealed partial class MainWindow : Window
     {
         var updater = _appUpdate.FindUpdater();
         if (updater is null) { await ShowMessage("The updater script could not be found. Run the app from its development repository installation."); return; }
+        var check = await CheckForUpdatesAsync();
+        if (check is null || !check.IsAvailable) return;
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
@@ -213,6 +215,34 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try { _appUpdate.Launch(updater); Close(); }
         catch (Exception ex) { await ShowMessage($"The updater could not be started: {ex.Message}"); }
+    }
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync();
+
+    private async Task<AppUpdateService.UpdateCheckResult?> CheckForUpdatesAsync()
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateButton.IsEnabled = false;
+        UpdateStatusBar.Title = "Checking for updates...";
+        UpdateStatusBar.Message = "Contacting the main branch without closing the app.";
+        UpdateStatusBar.Severity = InfoBarSeverity.Informational;
+        try
+        {
+            var result = await _appUpdate.CheckAsync();
+            UpdateStatusBar.Title = result.IsAvailable ? "Update available" : "Up to date";
+            UpdateStatusBar.Message = $"{result.Message} Installed {result.CurrentCommit}; latest {result.LatestCommit}. Checked {DateTimeOffset.Now:t}.";
+            UpdateStatusBar.Severity = result.IsAvailable ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
+            UpdateButton.IsEnabled = result.IsAvailable;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusBar.Title = "Update check failed";
+            UpdateStatusBar.Message = $"{ex.Message} The app will remain open.";
+            UpdateStatusBar.Severity = InfoBarSeverity.Error;
+            return null;
+        }
+        finally { CheckUpdateButton.IsEnabled = true; }
     }
 
     private void Monitor_Click(object sender, RoutedEventArgs e)
