@@ -24,6 +24,7 @@ public sealed partial class MainWindow : Window
     private readonly DraftRecoveryService _draftRecovery = new();
     private readonly ConversationSummaryService _conversationSummary = new();
     private readonly MailDiagnosticService _mailDiagnostic = new();
+    private readonly AppUpdateService _appUpdate = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -190,6 +191,24 @@ public sealed partial class MainWindow : Window
             DiagnosticList.ItemsSource = await _mailDiagnostic.RunAsync(settings, credential, settings.Authentication == MailAuthentication.GmailOAuth);
         }
         catch (Exception ex) { DiagnosticList.ItemsSource = new[] { new ConnectionDiagnostic("Setup", false, ex.Message) }; }
+    }
+
+    private async void UpdateApp_Click(object sender, RoutedEventArgs e)
+    {
+        var updater = _appUpdate.FindUpdater();
+        if (updater is null) { await ShowMessage("The updater script could not be found. Run the app from its development repository installation."); return; }
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Update ScamBait Desk?",
+            Content = "The app will close. PowerShell will pull main, build the update, assign a newer package version, and register it. Keep the PowerShell window open until it reports success.",
+            PrimaryButtonText = "Update and close app",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try { _appUpdate.Launch(updater); Close(); }
+        catch (Exception ex) { await ShowMessage($"The updater could not be started: {ex.Message}"); }
     }
 
     private void Monitor_Click(object sender, RoutedEventArgs e)

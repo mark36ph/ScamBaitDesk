@@ -3,6 +3,9 @@ $ErrorActionPreference = "Stop"
 $repository = Split-Path -Parent $PSScriptRoot
 Set-Location $repository
 
+# When launched from inside the app, give its process time to close and release build outputs.
+Start-Sleep -Seconds 2
+
 git pull
 if ($LASTEXITCODE -ne 0) { throw "git pull failed." }
 

@@ -15,7 +15,7 @@
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <AppBarToggleButton x:Name="EmergencyStopButton" Icon="Stop" Label="GLOBAL SEND STOP" Click="EmergencyStop_Click"/>
-            <CommandBar.SecondaryCommands><AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/><AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/><AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/><AppBarButton Icon="Contact" Label="Manage personas" Click="Personas_Click"/></CommandBar.SecondaryCommands>
+            <CommandBar.SecondaryCommands><AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/><AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/><AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/><AppBarButton Icon="Contact" Label="Manage personas" Click="Personas_Click"/><AppBarButton Icon="Refresh" Label="Update app" Click="UpdateApp_Click"/></CommandBar.SecondaryCommands>
             <CommandBar.Content>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7BA;" FontSize="22"/>
