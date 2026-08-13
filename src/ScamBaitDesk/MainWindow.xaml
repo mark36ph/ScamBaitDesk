@@ -163,6 +163,18 @@
                         </ListView>
                     </StackPanel>
                 </TabViewItem>
+                <TabViewItem x:Name="WebsiteTab" Header="Website check" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
+                        <TextBlock Text="Website safety check" Style="{ThemeResource TitleTextBlockStyle}"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Safe local inspection" Message="The target website is never contacted or opened. ScamBait Desk examines only the address text until you explicitly approve an external reputation search."/>
+                        <TextBox x:Name="WebsiteAddressBox" Header="Website address or domain" PlaceholderText="https://example.com or hxxps://example[.]com" FontFamily="Consolas"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Check locally" Click="CheckWebsite_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Use first URL from active case" Click="LoadCaseWebsite_Click"/><Button Content="Search existing VirusTotal report" Click="CheckWebsiteReputation_Click"/></StackPanel>
+                        <InfoBar x:Name="WebsiteResultBar" IsOpen="False" IsClosable="True" Title="Website check"/>
+                        <TextBlock Text="Local findings" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="WebsiteFindingList" MaxHeight="420"><ListView.ItemTemplate><DataTemplate x:DataType="local:WebsiteFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <Border Style="{StaticResource WorkspaceCard}"><TextBlock Text="A low score is not proof that a website is legitimate. Newly created, compromised, or carefully disguised sites may have no obvious URL warning. Never enter passwords, codes, payment information, or real identity details based on this result." TextWrapping="Wrap" Opacity="0.72"/></Border>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
                 <TabViewItem x:Name="HeadersTab" Header="Header forensics" IsClosable="False">
                     <ScrollViewer><StackPanel Padding="16" Spacing="12">
                         <InfoBar x:Name="ForensicsBar" IsOpen="False" IsClosable="False"/>

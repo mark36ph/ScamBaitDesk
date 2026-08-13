@@ -103,6 +103,16 @@ public sealed record ActivityItem(DateTimeOffset At, string CaseTitle, string Ki
     public string Display => $"{At.LocalDateTime:g} · {CaseTitle} · {Kind} — {Detail}";
 }
 
+public sealed record WebsiteFinding(string Label, string Detail, int Weight)
+{
+    public string Display => $"{Label} (+{Weight}) — {Detail}";
+}
+
+public sealed record WebsiteCheckResult(string NormalizedUrl, string Host, int Score, string Rating, IReadOnlyList<WebsiteFinding> Findings)
+{
+    public string Summary => $"{Rating} · {Score}/100 · {Findings.Count} local signal(s)";
+}
+
 public sealed record SenderClaim(Guid Id, DateTimeOffset RecordedAt, string Category, string Claim, string VerificationStatus)
 {
     public string Display => $"{Category} · {VerificationStatus} — {Claim}";

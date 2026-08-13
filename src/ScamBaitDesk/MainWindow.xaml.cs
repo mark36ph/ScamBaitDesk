@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private readonly IndicatorExtractionService _indicatorExtractor = new();
     private readonly EvidenceExportService _evidenceExporter = new();
     private readonly EvidenceVerificationService _evidenceVerifier = new();
+    private readonly WebsiteSafetyService _websiteSafety = new();
     private readonly EngagementSafetyService _engagementSafety = new();
     private readonly SmtpEngagementService _smtp = new();
     private readonly EngagementWorkspaceService _workspace = new();
@@ -161,12 +162,12 @@ public sealed partial class MainWindow : Window
             "Inbox" => new[] { ReviewTab },
             "Case" => new[] { ReviewTab, NotesTab, TimelineTab },
             "Engage" => new[] { PlanTab, ReplyTab, CallsTab },
-            "Investigate" => new[] { InsightTab, HeadersTab, IndicatorsTab, ToolsTab },
+            "Investigate" => new[] { InsightTab, WebsiteTab, HeadersTab, IndicatorsTab, ToolsTab },
             "Report" => new[] { ReportTab },
             "Settings" => new[] { SettingsTab },
             _ => new[] { InsightTab }
         };
-        foreach (var tab in new[] { ReviewTab, ReplyTab, CallsTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
+        foreach (var tab in new[] { ReviewTab, ReplyTab, CallsTab, NotesTab, TimelineTab, WebsiteTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
             tab.Visibility = visible.Contains(tab) ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceTabs.SelectedItem = visible[0];
     }
@@ -409,6 +410,49 @@ public sealed partial class MainWindow : Window
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Indicator lookup", $"User approved {indicator.TypeDisplay} lookup for {indicator.Value}."));
         await _cases.SaveAsync(_currentCase);
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
+    }
+
+    private void CheckWebsite_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = _websiteSafety.Check(WebsiteAddressBox.Text);
+            WebsiteAddressBox.Text = result.NormalizedUrl;
+            WebsiteResultBar.IsOpen = true; WebsiteResultBar.Title = result.Summary;
+            WebsiteResultBar.Message = result.Findings.Count == 0
+                ? "No obvious URL-structure warning was found. This does not prove the website is safe."
+                : "These are structural warning signs only; they are not a definitive scam verdict.";
+            WebsiteResultBar.Severity = result.Score >= 55 ? InfoBarSeverity.Error : result.Score >= 25 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+            WebsiteFindingList.ItemsSource = result.Findings;
+        }
+        catch (Exception ex)
+        {
+            WebsiteResultBar.IsOpen = true; WebsiteResultBar.Title = "Address could not be checked";
+            WebsiteResultBar.Message = ex.Message; WebsiteResultBar.Severity = InfoBarSeverity.Error;
+            WebsiteFindingList.ItemsSource = null;
+        }
+    }
+
+    private async void CheckWebsiteReputation_Click(object sender, RoutedEventArgs e)
+    {
+        WebsiteCheckResult result;
+        try { result = _websiteSafety.Check(WebsiteAddressBox.Text); }
+        catch (Exception ex) { await ShowMessage(ex.Message); return; }
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "External website reputation lookup", Content = $"Open VirusTotal search and disclose this full URL?\n\n{result.NormalizedUrl}\n\nThe target website itself will not be opened by ScamBait Desk. The URL will be shared with VirusTotal; do not continue if it contains private tokens or personal data.", PrimaryButtonText = "Open existing report search", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await Windows.System.Launcher.LaunchUriAsync(new Uri($"https://www.virustotal.com/gui/search/{Uri.EscapeDataString(result.NormalizedUrl)}"));
+        if (_currentCase is null) return;
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Website lookup", $"User approved an external existing-report search for {result.Host}."));
+        await _cases.SaveAsync(_currentCase);
+    }
+
+    private void LoadCaseWebsite_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { WebsiteResultBar.IsOpen = true; WebsiteResultBar.Title = "No active case"; WebsiteResultBar.Message = "Open a case containing an extracted URL first."; WebsiteResultBar.Severity = InfoBarSeverity.Warning; return; }
+        var url = _indicatorExtractor.Extract(_currentCase.Messages).FirstOrDefault(item => item.Type == IndicatorType.Url)?.Value;
+        if (string.IsNullOrWhiteSpace(url)) { WebsiteResultBar.IsOpen = true; WebsiteResultBar.Title = "No website found"; WebsiteResultBar.Message = "The active case contains no extracted URL."; WebsiteResultBar.Severity = InfoBarSeverity.Warning; return; }
+        WebsiteAddressBox.Text = url; CheckWebsite_Click(sender, e);
     }
 
     private async void NewCase_Click(object sender, RoutedEventArgs e)
