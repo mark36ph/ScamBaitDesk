@@ -54,6 +54,10 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Orders the main navigation as a numbered case workflow and keeps Settings separate at the bottom.
 - Associates the process with the installed package identity before creating the window so Windows can resolve the taskbar icon reliably.
 - Organises Settings into compact account, monitoring, integration, maintenance, and collapsible diagnostic sections.
+- Edits and deletes user-created reply templates while keeping built-in safety templates read-only.
+- Exports and merge-imports the complete local case library as a manual JSON backup.
+- Verifies exported evidence ZIP contents against their SHA-256 manifest entirely offline.
+- Shows a recent case-activity feed on the dashboard.
 - Maintains a redacted ledger of sender claims and their verification status.
 - Offers a safe verification-question bank that only inserts text into the manual draft.
 - Warns when a reply may be inconsistent with the assigned fictional persona.

@@ -98,6 +98,11 @@ public sealed record DuplicateCaseMatch(Guid CaseId, string Title, int Score, st
 
 public sealed record DashboardMetric(string Label, string Value);
 
+public sealed record ActivityItem(DateTimeOffset At, string CaseTitle, string Kind, string Detail)
+{
+    public string Display => $"{At.LocalDateTime:g} · {CaseTitle} · {Kind} — {Detail}";
+}
+
 public sealed record SenderClaim(Guid Id, DateTimeOffset RecordedAt, string Category, string Claim, string VerificationStatus)
 {
     public string Display => $"{Category} · {VerificationStatus} — {Claim}";

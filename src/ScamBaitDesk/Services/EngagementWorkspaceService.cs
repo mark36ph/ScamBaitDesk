@@ -74,18 +74,43 @@ public sealed class EngagementWorkspaceService
     public async Task<IReadOnlyList<ReplyTemplate>> LoadAllTemplatesAsync()
     {
         if (!File.Exists(_templatePath)) return Templates;
-        var local = JsonSerializer.Deserialize<List<ReplyTemplate>>(await File.ReadAllTextAsync(_templatePath)) ?? [];
+        var local = await LoadLocalTemplatesAsync();
         return Templates.Concat(local).ToList();
     }
 
     public async Task SaveTemplateAsync(ReplyTemplate template)
     {
-        var local = File.Exists(_templatePath)
-            ? JsonSerializer.Deserialize<List<ReplyTemplate>>(await File.ReadAllTextAsync(_templatePath)) ?? []
-            : [];
+        var local = await LoadLocalTemplatesAsync();
         local.Add(template);
+        await SaveLocalTemplatesAsync(local);
+    }
+
+    public async Task<bool> UpdateTemplateAsync(ReplyTemplate existing, ReplyTemplate replacement)
+    {
+        var local = await LoadLocalTemplatesAsync();
+        var index = local.FindIndex(item => item == existing);
+        if (index < 0) return false;
+        local[index] = replacement;
+        await SaveLocalTemplatesAsync(local);
+        return true;
+    }
+
+    public async Task<bool> DeleteTemplateAsync(ReplyTemplate template)
+    {
+        var local = await LoadLocalTemplatesAsync();
+        var removed = local.Remove(template);
+        if (removed) await SaveLocalTemplatesAsync(local);
+        return removed;
+    }
+
+    private async Task<List<ReplyTemplate>> LoadLocalTemplatesAsync() => File.Exists(_templatePath)
+        ? JsonSerializer.Deserialize<List<ReplyTemplate>>(await File.ReadAllTextAsync(_templatePath)) ?? []
+        : [];
+
+    private async Task SaveLocalTemplatesAsync(List<ReplyTemplate> templates)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(_templatePath)!);
-        await File.WriteAllTextAsync(_templatePath, JsonSerializer.Serialize(local, new JsonSerializerOptions { WriteIndented = true }));
+        await File.WriteAllTextAsync(_templatePath, JsonSerializer.Serialize(templates, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     public static string BuildReport(CaseRecord record, string destination)

@@ -16,6 +16,7 @@ public sealed partial class MainWindow : Window
     private readonly EmailForensicsService _forensics = new();
     private readonly IndicatorExtractionService _indicatorExtractor = new();
     private readonly EvidenceExportService _evidenceExporter = new();
+    private readonly EvidenceVerificationService _evidenceVerifier = new();
     private readonly EngagementSafetyService _engagementSafety = new();
     private readonly SmtpEngagementService _smtp = new();
     private readonly EngagementWorkspaceService _workspace = new();
@@ -729,6 +730,27 @@ public sealed partial class MainWindow : Window
         await LoadTemplatesAsync();
     }
 
+    private async void ManageTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (TemplateBox.SelectedItem is not ReplyTemplate selected) { await ShowMessage("Select a template first."); return; }
+        var name = new TextBox { Header = "Template name", Text = selected.Name };
+        var category = new TextBox { Header = "Category", Text = selected.ScamType };
+        var body = new TextBox { Header = "Safe reply text", Text = selected.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 160 };
+        var panel = new StackPanel { Spacing = 10 }; panel.Children.Add(name); panel.Children.Add(category); panel.Children.Add(body);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Manage local template", Content = panel, PrimaryButtonText = "Save changes", SecondaryButtonText = "Delete", CloseButtonText = "Cancel" };
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Secondary)
+        {
+            if (!await _workspace.DeleteTemplateAsync(selected)) { await ShowMessage("Built-in templates cannot be deleted."); return; }
+            await LoadTemplatesAsync(); return;
+        }
+        if (result != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(name.Text) || string.IsNullOrWhiteSpace(body.Text)) return;
+        if (!_engagementSafety.Review(body.Text).CanSend) { await ShowMessage("Remove blocked private or financial material before saving this template."); return; }
+        var replacement = new ReplyTemplate(name.Text.Trim(), string.IsNullOrWhiteSpace(category.Text) ? "Custom" : category.Text.Trim(), body.Text.Trim());
+        if (!await _workspace.UpdateTemplateAsync(selected, replacement)) { await ShowMessage("Built-in templates are read-only. Use Add to create a local version."); return; }
+        await LoadTemplatesAsync();
+    }
+
     private void SuggestLocalReply_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null) { DraftBox.Text = "Save or open the case before generating a conversation-aware suggestion."; return; }
@@ -775,6 +797,28 @@ public sealed partial class MainWindow : Window
         var package = new DataPackage(); package.SetText(ReportBox.Text); Clipboard.SetContent(package);
     }
 
+    private async void VerifyEvidence_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".zip");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSingleFileAsync(); if (file is null) return;
+        try
+        {
+            await using var stream = await file.OpenStreamForReadAsync();
+            var result = _evidenceVerifier.Verify(stream);
+            EvidenceVerificationBar.IsOpen = true;
+            EvidenceVerificationBar.Title = result.Success ? "Evidence package verified" : "Evidence package changed";
+            EvidenceVerificationBar.Message = result.Success ? result.Summary : $"{result.Summary} {string.Join("; ", result.Problems.Take(5))}";
+            EvidenceVerificationBar.Severity = result.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+        }
+        catch (Exception ex)
+        {
+            EvidenceVerificationBar.IsOpen = true; EvidenceVerificationBar.Title = "Verification failed";
+            EvidenceVerificationBar.Message = ex.Message; EvidenceVerificationBar.Severity = InfoBarSeverity.Error;
+        }
+    }
+
     private void RefreshDashboard()
     {
         if (DashboardList is null || PendingList is null) return;
@@ -784,6 +828,8 @@ public sealed partial class MainWindow : Window
             record.Status != CaseStatus.Closed || record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
             .OrderByDescending(record => record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
             .ThenByDescending(record => record.Analysis?.Score ?? 0).ToList();
+        RecentActivityList.ItemsSource = _caseRecords.SelectMany(record => record.Timeline.Select(item => new ActivityItem(item.At, record.Title, item.Kind, item.Detail)))
+            .OrderByDescending(item => item.At).Take(20).ToList();
     }
 
     private void RefreshCaseTools()
@@ -1074,6 +1120,33 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Summary export", "Exported a lightweight redacted text summary."));
         await _cases.SaveAsync(_currentCase);
+    }
+
+    private async void ExportCases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileSavePicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary, SuggestedFileName = $"ScamBaitDesk-cases-{DateTime.Now:yyyyMMdd}" };
+        picker.FileTypeChoices.Add("ScamBait Desk case backup", new List<string> { ".json" });
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSaveFileAsync(); if (file is null) return;
+        await using var stream = await file.OpenStreamForWriteAsync(); stream.SetLength(0);
+        await _cases.ExportAllAsync(stream); await ShowMessage($"Exported {_caseRecords.Count} local case(s).");
+    }
+
+    private async void ImportCases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSingleFileAsync(); if (file is null) return;
+        var properties = await file.GetBasicPropertiesAsync();
+        if (properties.Size > 25 * 1024 * 1024) { await ShowMessage("The backup is larger than the 25 MB import limit."); return; }
+        try
+        {
+            await using var stream = await file.OpenStreamForReadAsync();
+            var count = await _cases.ImportAsync(stream); await LoadCasesAsync();
+            await ShowMessage($"Imported or updated {count} case(s). Newer local cases were preserved.");
+        }
+        catch (Exception ex) { await ShowMessage($"The case backup could not be imported: {ex.Message}"); }
     }
 
     private async Task ShowMessage(string message) => await new ContentDialog

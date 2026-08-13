@@ -75,6 +75,8 @@
                       <ItemsControl x:Name="DashboardList"><ItemsControl.ItemTemplate><DataTemplate x:DataType="local:DashboardMetric"><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}"/><TextBlock Grid.Column="1" Text="{x:Bind Value}" FontWeight="SemiBold"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                       <TextBlock Text="Pending actions" FontWeight="SemiBold" Margin="0,10,0,0"/>
                       <ListView x:Name="PendingList" MaxHeight="300"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord"><StackPanel Margin="0,4"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold"/><TextBlock Text="{x:Bind Summary}" FontSize="12" Opacity="0.7"/></StackPanel></DataTemplate></ListView.ItemTemplate></ListView>
+                      <TextBlock Text="Recent activity" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                      <ListView x:Name="RecentActivityList" MaxHeight="260"><ListView.ItemTemplate><DataTemplate x:DataType="local:ActivityItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" FontSize="12" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                   </TabViewItem>
                   <TabViewItem x:Name="ActionsCollectionTab" Header="Next actions" IsClosable="False"><ListView x:Name="NextActionList"><ListView.ItemTemplate><DataTemplate x:DataType="local:NextActionItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="6"/></DataTemplate></ListView.ItemTemplate></ListView></TabViewItem>
@@ -112,7 +114,7 @@
                         <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="PersonaBox" Header="Fictional persona" DisplayMemberPath="Display" SelectionChanged="PersonaBox_SelectionChanged"/>
                             <ComboBox x:Name="TemplateBox" Grid.Column="1" Header="Reply template" DisplayMemberPath="Display"/>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"><Button Content="Apply template" Click="ApplyTemplate_Click"/><Button Content="Add local template" Click="AddTemplate_Click"/></StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"><Button Content="Apply" Click="ApplyTemplate_Click"/><Button Content="Add" Click="AddTemplate_Click"/><Button Content="Manage" Click="ManageTemplate_Click"/></StackPanel>
                         </Grid>
                         <TextBox x:Name="DraftBox" Header="Plain-text reply" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="240" TextChanged="DraftBox_TextChanged"/>
                         <InfoBar x:Name="PrivacyBar" IsOpen="True" IsClosable="False" Title="Privacy guard"/>
@@ -206,7 +208,9 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Copy report" Click="CopyReport_Click"/>
                             <Button Content="Export evidence ZIP" Click="ExportEvidence_Click"/>
+                            <Button Content="Verify evidence ZIP" Click="VerifyEvidence_Click"/>
                         </StackPanel>
+                        <InfoBar x:Name="EvidenceVerificationBar" IsOpen="False" IsClosable="True" Title="Evidence verification"/>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
                 <TabViewItem x:Name="ToolsTab" Header="Case tools" IsClosable="False">
@@ -296,6 +300,7 @@
                                     <InfoBar x:Name="UpdateStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Not checked" Message="Check to compare the installed and latest builds."/>
                                     <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="CheckUpdateButton" Content="Check for updates" Click="CheckUpdate_Click"/><Button x:Name="UpdateButton" Content="Update and restart" Click="UpdateApp_Click" Style="{StaticResource AccentButtonStyle}"/></StackPanel>
                                 </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE8B7;"/><TextBlock Text="Case library backup" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel><TextBlock Text="Export every local case or merge a previous backup. Newer local copies are kept." TextWrapping="Wrap" Opacity="0.68"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Export cases" Click="ExportCases_Click"/><Button Content="Import cases" Click="ImportCases_Click"/></StackPanel></StackPanel></Border>
                                 <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="6"><TextBlock Text="Calling and recording" FontWeight="SemiBold"/><TextBlock Text="PSTN calling and audio recording stay disabled unless a compatible provider is added later." TextWrapping="Wrap" Opacity="0.65"/></StackPanel></Border>
                             </StackPanel>
                         </Grid>

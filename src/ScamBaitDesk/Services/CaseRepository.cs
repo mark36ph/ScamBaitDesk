@@ -25,6 +25,26 @@ public sealed class CaseRepository
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    public async Task ExportAllAsync(Stream destination) =>
+        await JsonSerializer.SerializeAsync(destination, await LoadAsync(), new JsonSerializerOptions { WriteIndented = true });
+
+    public async Task<int> ImportAsync(Stream source)
+    {
+        var imported = await JsonSerializer.DeserializeAsync<List<CaseRecord>>(source) ?? [];
+        var existing = (await LoadAsync()).ToDictionary(record => record.Id);
+        var saved = 0;
+        foreach (var record in imported.Where(record => record.Id != Guid.Empty))
+        {
+            if (existing.TryGetValue(record.Id, out var current) && current.UpdatedAt > record.UpdatedAt) continue;
+            Normalize(record);
+            record.UpdatedAt = DateTimeOffset.Now;
+            record.Timeline.Add(new CaseEvent(record.UpdatedAt, "Backup import", "Case restored or merged from a local backup file."));
+            await SaveAsync(record);
+            saved++;
+        }
+        return saved;
+    }
+
     public async Task<IReadOnlyList<CaseRecord>> LoadAsync()
     {
         if (!Directory.Exists(_directory)) return [];
@@ -54,23 +74,30 @@ public sealed class CaseRepository
             else record = JsonSerializer.Deserialize<CaseRecord>(json);
             if (record is not null)
             {
-                record.OutboundMessages ??= [];
-                record.Priority = string.IsNullOrWhiteSpace(record.Priority) ? "Normal" : record.Priority;
-                record.Tags ??= [];
-                record.EngagementStopReason ??= string.Empty;
-                record.Reminders ??= [];
-                record.Calls ??= [];
-                record.Checklist ??= [];
-                if (record.Checklist.Count == 0) record.Checklist = NewChecklist();
-                record.EngagementStage ??= "Initial review";
-                record.EngagementObjective ??= "Request independently verifiable information";
-                record.SenderClaims ??= [];
-                record.ImportedIndicators ??= [];
-                if (record.OutboundMessageBudget <= 0) record.OutboundMessageBudget = 10;
+                Normalize(record);
                 records.Add(record);
             }
         }
         return records.OrderByDescending(record => record.UpdatedAt).ToList();
+    }
+
+    private static void Normalize(CaseRecord record)
+    {
+        record.Messages ??= [];
+        record.Timeline ??= [];
+        record.OutboundMessages ??= [];
+        record.Priority = string.IsNullOrWhiteSpace(record.Priority) ? "Normal" : record.Priority;
+        record.Tags ??= [];
+        record.EngagementStopReason ??= string.Empty;
+        record.Reminders ??= [];
+        record.Calls ??= [];
+        record.Checklist ??= [];
+        if (record.Checklist.Count == 0) record.Checklist = NewChecklist();
+        record.EngagementStage ??= "Initial review";
+        record.EngagementObjective ??= "Request independently verifiable information";
+        record.SenderClaims ??= [];
+        record.ImportedIndicators ??= [];
+        if (record.OutboundMessageBudget <= 0) record.OutboundMessageBudget = 10;
     }
 
     private sealed record LegacyCaseRecord(
