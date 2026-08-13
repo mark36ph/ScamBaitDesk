@@ -92,6 +92,8 @@ public sealed partial class MainWindow : Window
         var smallIcon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 16, 16, LoadFromFile);
         if (largeIcon != IntPtr.Zero) SendMessage(windowHandle, SetIconMessage, new IntPtr(IconBig), largeIcon);
         if (smallIcon != IntPtr.Zero) SendMessage(windowHandle, SetIconMessage, new IntPtr(IconSmall), smallIcon);
+        if (largeIcon != IntPtr.Zero) SetClassLongPtr(windowHandle, ClassIcon, largeIcon);
+        if (smallIcon != IntPtr.Zero) SetClassLongPtr(windowHandle, ClassSmallIcon, smallIcon);
     }
 
     private const uint SetIconMessage = 0x0080;
@@ -99,12 +101,17 @@ public sealed partial class MainWindow : Window
     private const int IconBig = 1;
     private const uint ImageIcon = 1;
     private const uint LoadFromFile = 0x0010;
+    private const int ClassIcon = -14;
+    private const int ClassSmallIcon = -34;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint load);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr parameter, IntPtr value);
+
+    [DllImport("user32.dll", EntryPoint = "SetClassLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetClassLongPtr(IntPtr window, int index, IntPtr value);
 
     private void SetCollectionTabs(string destination)
     {
@@ -431,6 +438,8 @@ public sealed partial class MainWindow : Window
         PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == _currentCase.PersonaId);
         ShowStoppedState();
         NotesBox.Text = _currentCase.Notes;
+        PriorityBox.SelectedIndex = _currentCase.Priority switch { "Low" => 0, "High" => 2, "Urgent" => 3, _ => 1 };
+        TagsBox.Text = string.Join(", ", _currentCase.Tags);
         SignalList.ItemsSource = _analysis?.Signals;
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
         StatusBox.SelectedIndex = IndexFromStatus(_currentCase.Status);
@@ -831,6 +840,27 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reminder", $"Manual follow-up scheduled for {due.LocalDateTime:g}. No message will be sent automatically."));
         await _cases.SaveAsync(_currentCase); RefreshCaseTools(); await LoadCasesAsync();
+    }
+
+    private async void QuickReminder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        var due = DateTimeOffset.Now.AddHours(24);
+        _currentCase.Reminders.Add(new FollowUpReminder(Guid.NewGuid(), due, "Review for a reply", false));
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reminder", $"Quick follow-up scheduled for {due.LocalDateTime:g}. No message will be sent automatically."));
+        await _cases.SaveAsync(_currentCase); RefreshCaseTools(); await LoadCasesAsync();
+    }
+
+    private async void SaveCaseDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        _currentCase.Priority = PriorityBox.SelectedItem?.ToString() ?? "Normal";
+        _currentCase.Tags = TagsBox.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(tag => tag.Length <= 30).Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToList();
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Case details", $"Priority set to {_currentCase.Priority}; {_currentCase.Tags.Count} tag(s)."));
+        await _cases.SaveAsync(_currentCase); NavCaseStatus.Text = _currentCase.Summary; await LoadCasesAsync();
     }
 
     private async void CompleteReminder_Click(object sender, RoutedEventArgs e)

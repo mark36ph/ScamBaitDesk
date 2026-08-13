@@ -36,6 +36,8 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Shows a case dashboard with active, high-risk, stopped, replied, and reminder-due totals.
 - Detects possible duplicate cases locally using sender and subject-term similarity.
 - Schedules local manual follow-up reminders; reminders never send messages.
+- Adds one-click 24-hour follow-up reminders for active conversations.
+- Organises cases with Low, Normal, High, or Urgent priority and up to ten editable tags.
 - Quarantines attachments as inert metadata only, with no open, preview, save, or execute action.
 - Provides a persistent global emergency stop that disables all outbound sending.
 - Exports a lightweight redacted text summary separately from the full evidence ZIP.

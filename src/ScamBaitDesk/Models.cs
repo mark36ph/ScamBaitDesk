@@ -172,6 +172,8 @@ public sealed class CaseRecord
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
     public string Title { get; set; } = "Untitled case";
     public CaseStatus Status { get; set; } = CaseStatus.New;
+    public string Priority { get; set; } = "Normal";
+    public List<string> Tags { get; set; } = [];
     public List<InboxMessage> Messages { get; set; } = [];
     public AnalysisResult? Analysis { get; set; }
     public string DraftReply { get; set; } = string.Empty;
@@ -195,7 +197,7 @@ public sealed class CaseRecord
         _ => Status.ToString()
     };
     public string UpdatedDisplay => UpdatedAt.LocalDateTime.ToString("g");
-    public string Summary => $"{StatusDisplay}{(EngagementStopped ? " · STOPPED" : string.Empty)} · {Messages.Count} message(s) · updated {UpdatedDisplay}";
+    public string Summary => $"{Priority} priority · {StatusDisplay}{(EngagementStopped ? " · STOPPED" : string.Empty)} · {Messages.Count} message(s) · updated {UpdatedDisplay}";
 }
 
 public static class ConversationService

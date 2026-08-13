@@ -46,6 +46,8 @@ public sealed class CaseRepository
             if (record is not null)
             {
                 record.OutboundMessages ??= [];
+                record.Priority = string.IsNullOrWhiteSpace(record.Priority) ? "Normal" : record.Priority;
+                record.Tags ??= [];
                 record.EngagementStopReason ??= string.Empty;
                 record.Reminders ??= [];
                 record.EngagementStage ??= "Initial review";

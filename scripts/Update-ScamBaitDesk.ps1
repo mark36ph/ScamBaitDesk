@@ -28,24 +28,28 @@ $stage.Location = New-Object System.Drawing.Point(24, 62)
 $window.Controls.Add($stage)
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Style = "Marquee"
-$progress.MarqueeAnimationSpeed = 25
+$progress.Style = "Continuous"
+$progress.Minimum = 0
+$progress.Maximum = 100
+$progress.Value = 5
 $progress.Size = New-Object System.Drawing.Size(400, 20)
 $progress.Location = New-Object System.Drawing.Point(24, 96)
 $window.Controls.Add($progress)
 
-function Set-UpdateStage([string]$message) {
+function Set-UpdateStage([string]$message, [int]$percent) {
     $stage.Text = $message
+    $progress.Value = [Math]::Max(0, [Math]::Min(100, $percent))
     $window.Refresh()
     [System.Windows.Forms.Application]::DoEvents()
 }
 
-function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [string]$failureMessage) {
+function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [int]$maximumPercent, [string]$failureMessage) {
     $process = Start-Process -FilePath $fileName -ArgumentList $arguments -WorkingDirectory $repository -NoNewWindow -PassThru
     while (-not $process.HasExited) {
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 100
         $process.Refresh()
+        if ($progress.Value -lt $maximumPercent) { $progress.Value++ }
     }
     if ($process.ExitCode -ne 0) { throw $failureMessage }
 }
@@ -62,11 +66,11 @@ Set-Location $repository
 # When launched from inside the app, give its process time to close and release build outputs.
 Start-Sleep -Seconds 2
 
-Set-UpdateStage "Downloading the latest version..."
-Invoke-UpdateProcess "git.exe" @("pull", "--ff-only") "Downloading the update failed."
+Set-UpdateStage "Downloading the latest version..." 15
+Invoke-UpdateProcess "git.exe" @("pull", "--ff-only") 35 "Downloading the update failed."
 
-Set-UpdateStage "Building the application..."
-Invoke-UpdateProcess "dotnet.exe" @("build", ".\ScamBaitDesk.sln", "-c", "Debug", "-p:Platform=x64", "-p:PublishProfile=") "The Windows build failed; the installed app was not changed."
+Set-UpdateStage "Building the application..." 40
+Invoke-UpdateProcess "dotnet.exe" @("build", ".\ScamBaitDesk.sln", "-c", "Debug", "-p:Platform=x64", "-p:PublishProfile=") 75 "The Windows build failed; the installed app was not changed."
 
 $manifest = Get-ChildItem ".\src\ScamBaitDesk\bin\x64\Debug" -Recurse -Filter AppxManifest.xml |
     Sort-Object LastWriteTime -Descending |
@@ -84,10 +88,10 @@ $version = "1.$monthVersion.$dayHourVersion.$minuteSecondVersion"
 $xml.Package.Identity.Version = $version
 $xml.Save($manifest.FullName)
 
-Set-UpdateStage "Installing the update..."
+Set-UpdateStage "Installing the update..." 80
 Add-AppxPackage -Register $manifest.FullName -ForceApplicationShutdown
 
-Set-UpdateStage "Reopening ScamBait Desk..."
+Set-UpdateStage "Reopening ScamBait Desk..." 95
 Start-Sleep -Seconds 1
 $installedApp = Get-StartApps | Where-Object Name -EQ "ScamBait Desk" | Select-Object -First 1
 if ($installedApp) {

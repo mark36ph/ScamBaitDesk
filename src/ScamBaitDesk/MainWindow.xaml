@@ -130,6 +130,8 @@
                 </TabViewItem>
                 <TabViewItem x:Name="NotesTab" Header="Evidence notes" IsClosable="False">
                     <StackPanel Padding="16" Spacing="12">
+                        <TextBlock Text="Case organisation" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="PriorityBox" Header="Priority" SelectedIndex="1"><x:String>Low</x:String><x:String>Normal</x:String><x:String>High</x:String><x:String>Urgent</x:String></ComboBox><TextBox x:Name="TagsBox" Grid.Column="1" Header="Tags" PlaceholderText="payment, impersonation, follow-up"/><Button Grid.Column="2" Content="Save details" Click="SaveCaseDetails_Click" VerticalAlignment="Bottom"/></Grid>
                         <TextBlock Text="Record observations, verification steps, and reporting references. Do not store passwords or security codes." TextWrapping="Wrap"/>
                         <TextBox x:Name="NotesBox" Header="Case notes" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="300"/>
                     </StackPanel>
@@ -198,7 +200,7 @@
                         <TextBlock Text="Possible duplicate cases" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                         <ListView x:Name="DuplicateList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:DuplicateCaseMatch"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                         <TextBlock Text="Manual follow-up reminders" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add reminder" Click="AddReminder_Click"/><Button Content="Mark selected complete" Click="CompleteReminder_Click"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add reminder" Click="AddReminder_Click"/><Button Content="Remind me in 24 hours" Click="QuickReminder_Click"/><Button Content="Mark selected complete" Click="CompleteReminder_Click"/></StackPanel>
                         <ListView x:Name="ReminderList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:FollowUpReminder"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                         <Button Content="Export lightweight case summary" Click="ExportSummary_Click" HorizontalAlignment="Left"/>
                     </StackPanel></ScrollViewer>
