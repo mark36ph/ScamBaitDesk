@@ -118,6 +118,18 @@ public sealed record ProvenanceIndicator(Guid Id, DateTimeOffset AddedAt, string
     public string Display => $"{Value} · source: {Source}";
 }
 
+public sealed record ConversationFact(string Category, string Value)
+{
+    public string Display => $"{Category} — {Value}";
+}
+
+public sealed record ConversationSummary(string Overview, IReadOnlyList<ConversationFact> Facts, IReadOnlyList<string> Contradictions, IReadOnlyList<string> UnansweredQuestions);
+
+public sealed record ConnectionDiagnostic(string Component, bool Success, string Detail)
+{
+    public string Display => $"{(Success ? "PASS" : "FAIL")} · {Component} — {Detail}";
+}
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";

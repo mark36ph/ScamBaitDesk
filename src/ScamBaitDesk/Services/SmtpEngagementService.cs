@@ -12,6 +12,7 @@ public sealed class SmtpEngagementService
         string recipient,
         string subject,
         string body,
+        InboxMessage replyTo,
         CancellationToken cancellationToken = default,
         bool useOAuth = false)
     {
@@ -24,6 +25,14 @@ public sealed class SmtpEngagementService
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };
         message.Headers.Add("X-ScamBaitDesk-Manual-Send", "true");
+        if (!string.IsNullOrWhiteSpace(replyTo.Id))
+        {
+            message.InReplyTo = replyTo.Id;
+            if (replyTo.Headers.TryGetValue("References", out var references))
+                foreach (var value in references.SelectMany(value => value.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+                    if (!message.References.Contains(value)) message.References.Add(value);
+            if (!message.References.Contains(replyTo.Id)) message.References.Add(replyTo.Id);
+        }
 
         using var client = new SmtpClient();
         var socket = settings.SmtpUseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;

@@ -50,6 +50,11 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Shows a unified Next Actions queue across active cases.
 - Accepts manually entered email/domain indicators only with provenance, an authorization note, and a no-first-contact confirmation.
 - Does not crawl the internet, harvest addresses, or initiate contact from imported indicators.
+- Adds standards-based `In-Reply-To` and `References` headers so outbound replies stay in the original email thread.
+- Autosaves recoverable drafts locally after edits and clears recovery data after a successful send.
+- Monitors the dedicated inbox every 60 seconds while the app is open and alerts when new received messages arrive.
+- Builds deterministic local conversation summaries of money requests, deadlines, organisation claims, contradictions, and unanswered verification questions.
+- Tests IMAP TLS/authentication and SMTP TLS/authentication without sending a message.
 
 ## Requirements
 

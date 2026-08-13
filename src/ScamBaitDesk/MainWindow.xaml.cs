@@ -21,6 +21,9 @@ public sealed partial class MainWindow : Window
     private readonly CaseIntelligenceService _intelligence = new();
     private readonly SafetyStateService _safetyState = new();
     private readonly GoogleOAuthService _googleOAuth = new();
+    private readonly DraftRecoveryService _draftRecovery = new();
+    private readonly ConversationSummaryService _conversationSummary = new();
+    private readonly MailDiagnosticService _mailDiagnostic = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -28,10 +31,16 @@ public sealed partial class MainWindow : Window
     private List<CaseRecord> _caseRecords = [];
     private List<PersonaProfile> _personas = [];
     private bool _globalEmergencyStop;
+    private bool _syncInProgress;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _monitorTimer;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _draftTimer;
 
     public MainWindow()
     {
         InitializeComponent();
+        _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
+        _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
+        Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); };
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
@@ -70,15 +79,26 @@ public sealed partial class MainWindow : Window
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
     {
+        try { await SyncInboxAsync(true); }
+        catch (Exception ex) { await ShowMessage($"Inbox sync failed: {ex.Message}"); }
+    }
+
+    private async Task<int> SyncInboxAsync(bool interactive)
+    {
+        if (_syncInProgress) return 0;
+        _syncInProgress = true;
         try
         {
             var settings = await _settings.LoadAsync();
-            if (settings is null) { await ShowMessage("Set up the dedicated inbox first."); return; }
+            if (settings is null) { if (interactive) await ShowMessage("Set up the dedicated inbox first."); return 0; }
+            var before = _messages.Select(message => message.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var credential = await GetMailCredentialAsync(settings);
-            _messages = (await _inbox.FetchAsync(settings, credential, settings.Authentication == MailAuthentication.GmailOAuth)).ToList();
-            ApplyFilter();
+            var fetched = (await _inbox.FetchAsync(settings, credential, settings.Authentication == MailAuthentication.GmailOAuth)).ToList();
+            var newReceived = fetched.Count(message => !message.IsOutbound && !before.Contains(message.Id));
+            _messages = fetched; ApplyFilter();
+            return newReceived;
         }
-        catch (Exception ex) { await ShowMessage($"Inbox sync failed: {ex.Message}"); }
+        finally { _syncInProgress = false; }
     }
 
     private async void Settings_Click(object sender, RoutedEventArgs e)
@@ -112,6 +132,33 @@ public sealed partial class MainWindow : Window
             await ShowMessage("Gmail OAuth connected. The refresh token is stored in Windows Credential Locker.");
         }
         catch (Exception ex) { await ShowMessage($"Gmail OAuth connection failed: {ex.Message}"); }
+    }
+
+    private async void TestConnection_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var settings = await _settings.LoadAsync() ?? throw new InvalidOperationException("Configure the dedicated mailbox first.");
+            var credential = await GetMailCredentialAsync(settings);
+            DiagnosticList.ItemsSource = await _mailDiagnostic.RunAsync(settings, credential, settings.Authentication == MailAuthentication.GmailOAuth);
+        }
+        catch (Exception ex) { DiagnosticList.ItemsSource = new[] { new ConnectionDiagnostic("Setup", false, ex.Message) }; }
+    }
+
+    private void Monitor_Click(object sender, RoutedEventArgs e)
+    {
+        if (MonitorButton.IsChecked == true) { _monitorTimer.Start(); MonitorBar.Title = "Inbox monitor on"; MonitorBar.Message = "Checking read-only every 60 seconds while the app is open."; MonitorBar.Severity = InfoBarSeverity.Success; }
+        else { _monitorTimer.Stop(); MonitorBar.Title = "Inbox monitor off"; MonitorBar.Message = "No background checks are running."; MonitorBar.Severity = InfoBarSeverity.Informational; }
+    }
+
+    private async void MonitorTimer_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        try
+        {
+            var count = await SyncInboxAsync(false);
+            if (count > 0) { MonitorBar.Title = $"{count} new message(s)"; MonitorBar.Message = "The dedicated inbox list has been refreshed."; MonitorBar.Severity = InfoBarSeverity.Warning; Activate(); }
+        }
+        catch (Exception ex) { MonitorBar.Title = "Monitor check failed"; MonitorBar.Message = ex.Message; MonitorBar.Severity = InfoBarSeverity.Error; }
     }
 
     private async Task<string> GetMailCredentialAsync(InboxSettings settings)
@@ -148,6 +195,7 @@ public sealed partial class MainWindow : Window
         AttachmentList.ItemsSource = _selected.Attachments;
         DuplicateList.ItemsSource = null;
         ReminderList.ItemsSource = null;
+        _ = RestoreDraftAsync();
     }
 
     private void ShowIndicators(IEnumerable<InboxMessage> messages) =>
@@ -252,6 +300,8 @@ public sealed partial class MainWindow : Window
         ShowIndicators(_currentCase.Messages);
         RefreshCaseTools();
         RefreshEngagementPlan();
+        RefreshConversationSummary();
+        _ = RestoreDraftAsync();
     }
 
     private void ShowForensics(InboxMessage? message)
@@ -321,7 +371,21 @@ public sealed partial class MainWindow : Window
         Clipboard.SetContent(package);
     }
 
-    private void DraftBox_TextChanged(object sender, TextChangedEventArgs e) => ReviewDraft();
+    private void DraftBox_TextChanged(object sender, TextChangedEventArgs e) { ReviewDraft(); _draftTimer?.Stop(); _draftTimer?.Start(); }
+
+    private async void DraftTimer_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        var key = DraftKey(); if (key is not null) await _draftRecovery.SaveAsync(key, DraftBox.Text ?? string.Empty);
+    }
+
+    private async Task RestoreDraftAsync()
+    {
+        var key = DraftKey(); if (key is null) return;
+        var recovered = await _draftRecovery.LoadAsync(key);
+        if (!string.IsNullOrWhiteSpace(recovered) && recovered != DraftBox.Text) DraftBox.Text = recovered;
+    }
+
+    private string? DraftKey() => _currentCase is not null ? $"case:{_currentCase.Id}" : _selected is not null ? $"message:{_selected.Id}" : null;
 
     private void ReviewDraft()
     {
@@ -374,13 +438,14 @@ public sealed partial class MainWindow : Window
             if (settings is null) { await ShowMessage("Configure the dedicated mail account first."); return; }
             var credential = await GetMailCredentialAsync(settings);
             var subject = _selected.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase) ? _selected.Subject : $"Re: {_selected.Subject}";
-            var messageId = await _smtp.SendAsync(settings, credential, recipient, subject, DraftBox.Text, useOAuth: settings.Authentication == MailAuthentication.GmailOAuth);
+            var messageId = await _smtp.SendAsync(settings, credential, recipient, subject, DraftBox.Text, _selected, useOAuth: settings.Authentication == MailAuthentication.GmailOAuth);
             var now = DateTimeOffset.Now;
             _currentCase.DraftReply = DraftBox.Text;
             _currentCase.OutboundMessages.Add(new OutboundMessageRecord(now, recipient, subject, ScamAnalysisService.Redact(DraftBox.Text), messageId));
             _currentCase.UpdatedAt = now;
             _currentCase.Timeline.Add(new CaseEvent(now, "Manual outbound", $"Sent one plain-text message to {recipient}. Message-ID: {messageId}."));
             await _cases.SaveAsync(_currentCase);
+            _draftRecovery.Delete($"case:{_currentCase.Id}");
             OutboundList.ItemsSource = _currentCase.OutboundMessages.OrderByDescending(item => item.SentAt);
             TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
             await ShowMessage("One message was sent and recorded in the case audit trail.");
@@ -519,6 +584,16 @@ public sealed partial class MainWindow : Window
         EngagementDeadlinePicker.Date = _currentCase.EngagementDeadline ?? DateTimeOffset.Now.AddDays(7);
         ClaimList.ItemsSource = _currentCase.SenderClaims.OrderByDescending(item => item.RecordedAt).ToList();
         SourcedIndicatorList.ItemsSource = _currentCase.ImportedIndicators.OrderByDescending(item => item.AddedAt).ToList();
+    }
+
+    private void RefreshConversationSummary()
+    {
+        if (_currentCase is null) return;
+        var summary = _conversationSummary.Summarize(_currentCase);
+        ConversationOverview.Text = summary.Overview;
+        ConversationFactList.ItemsSource = summary.Facts;
+        ContradictionList.ItemsSource = summary.Contradictions;
+        UnansweredQuestionList.ItemsSource = summary.UnansweredQuestions;
     }
 
     private async void SaveEngagementPlan_Click(object sender, RoutedEventArgs e)

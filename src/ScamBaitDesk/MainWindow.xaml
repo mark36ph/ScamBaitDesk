@@ -10,6 +10,8 @@
             <AppBarButton Icon="Sync" Label="Sync inbox" Click="Sync_Click"/>
             <AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/>
             <AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/>
+            <AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/>
+            <AppBarToggleButton x:Name="MonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click"/>
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <AppBarButton Icon="Contact" Label="Personas" Click="Personas_Click"/>
@@ -210,6 +212,20 @@
                         <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="No prospecting" Message="Add only indicators from reports or messages you are authorised to investigate. This never searches for addresses or starts contact."/>
                         <Button Content="Add sourced indicator" Click="AddSourcedIndicator_Click" HorizontalAlignment="Left"/>
                         <ListView x:Name="SourcedIndicatorList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ProvenanceIndicator"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem Header="Conversation insight" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Inbox monitor off" Message="Enable monitoring to check for new messages every 60 seconds while the app is open."/>
+                        <TextBlock x:Name="ConversationOverview" Text="Open a case to build a local summary." Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Extracted requests and claims" FontWeight="SemiBold"/>
+                        <ListView x:Name="ConversationFactList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConversationFact"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Potential contradictions" FontWeight="SemiBold"/>
+                        <ItemsControl x:Name="ContradictionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <TextBlock Text="Unanswered verification questions" FontWeight="SemiBold"/>
+                        <ItemsControl x:Name="UnansweredQuestionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <TextBlock Text="Connection diagnostics" FontWeight="SemiBold"/>
+                        <ListView x:Name="DiagnosticList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
             </TabView>
