@@ -50,6 +50,7 @@ public sealed class CaseRepository
                 record.Tags ??= [];
                 record.EngagementStopReason ??= string.Empty;
                 record.Reminders ??= [];
+                record.Calls ??= [];
                 record.EngagementStage ??= "Initial review";
                 record.EngagementObjective ??= "Request independently verifiable information";
                 record.SenderClaims ??= [];

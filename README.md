@@ -44,6 +44,9 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Tracks conversation stage, a current engagement objective, a total reply budget, and an optional deadline per case.
 - Provides controlled playbooks for identity verification, payment evidence, delaying safely, and preparing a report.
 - Generates a concise local case briefing with risk, stage, message counts, contradictions, overdue reminders, and the next suggested action.
+- Provides a provider-neutral call workspace that uses only phone numbers extracted from the active case and opens one number in the configured Windows VoIP handler.
+- Stores redacted call outcomes, notes, recording-consent confirmation, and timeline entries in the case and evidence export.
+- Does not provide caller-ID spoofing, autodialling, bulk calling, covert recording, or automatic calls.
 - Maintains a redacted ledger of sender claims and their verification status.
 - Offers a safe verification-question bank that only inserts text into the manual draft.
 - Warns when a reply may be inconsistent with the assigned fictional persona.

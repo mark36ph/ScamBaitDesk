@@ -147,13 +147,13 @@ public sealed partial class MainWindow : Window
             "Home" => new[] { InsightTab },
             "Inbox" => new[] { ReviewTab },
             "Case" => new[] { ReviewTab, NotesTab, TimelineTab, PlanTab },
-            "Engage" => new[] { ReplyTab },
+            "Engage" => new[] { ReplyTab, CallsTab },
             "Investigate" => new[] { InsightTab, HeadersTab, IndicatorsTab, ToolsTab },
             "Report" => new[] { ReportTab },
             "Settings" => new[] { SettingsTab },
             _ => new[] { InsightTab }
         };
-        foreach (var tab in new[] { ReviewTab, ReplyTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
+        foreach (var tab in new[] { ReviewTab, ReplyTab, CallsTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab, SettingsTab })
             tab.Visibility = visible.Contains(tab) ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceTabs.SelectedItem = visible[0];
     }
@@ -467,6 +467,7 @@ public sealed partial class MainWindow : Window
         RefreshEngagementPlan();
         RefreshConversationSummary();
         RefreshCaseBriefing();
+        RefreshCallWorkspace();
         _ = RestoreDraftAsync();
     }
 
@@ -789,6 +790,41 @@ public sealed partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(CaseBriefingText.Text)) return;
         var package = new DataPackage(); package.SetText(CaseBriefingText.Text); Clipboard.SetContent(package);
+    }
+
+    private void RefreshCallWorkspace()
+    {
+        if (_currentCase is null) { CallNumberBox.ItemsSource = null; CallLogList.ItemsSource = null; return; }
+        CallNumberBox.ItemsSource = _indicatorExtractor.Extract(_currentCase.Messages)
+            .Where(item => item.Type == IndicatorType.Phone).Select(item => item.Value).Distinct().ToList();
+        if (CallNumberBox.Items.Count > 0) CallNumberBox.SelectedIndex = 0;
+        CallLogList.ItemsSource = _currentCase.Calls.OrderByDescending(call => call.At).ToList();
+    }
+
+    private async void OpenVoip_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || CallNumberBox.SelectedItem is not string number) { await ShowMessage("Open a case containing an extracted phone number first."); return; }
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Open dedicated VoIP app?", Content = $"Open this case-sourced number in your default Windows calling app?\n\n{number}\n\nUse only a dedicated bait number. This does not start recording.", PrimaryButtonText = "Open calling app", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var dialNumber = new string(number.Where(character => char.IsDigit(character) || character == '+').ToArray());
+        if (!await Windows.System.Launcher.LaunchUriAsync(new Uri($"tel:{dialNumber}"))) { await ShowMessage("Windows has no default app registered for telephone links."); return; }
+        var now = DateTimeOffset.Now;
+        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, "VoIP app opened", "Manual call launch requested; connection not verified.", false));
+        _currentCase.UpdatedAt = now;
+        _currentCase.Timeline.Add(new CaseEvent(now, "VoIP call", "Opened one case-sourced number in the default calling app; recording was not started."));
+        await _cases.SaveAsync(_currentCase); RefreshCallWorkspace();
+    }
+
+    private async void LogCallOutcome_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || CallNumberBox.SelectedItem is not string number) { await ShowMessage("Open a case containing an extracted phone number first."); return; }
+        var now = DateTimeOffset.Now;
+        var outcome = CallOutcomeBox.SelectedItem?.ToString() ?? "Other";
+        var notes = ScamAnalysisService.Redact(CallNotesBox.Text ?? string.Empty);
+        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, outcome, notes, RecordingConsentBox.IsChecked == true));
+        _currentCase.UpdatedAt = now;
+        _currentCase.Timeline.Add(new CaseEvent(now, "Call outcome", $"{outcome}; notes stored redacted; recording consent confirmed: {RecordingConsentBox.IsChecked == true}."));
+        await _cases.SaveAsync(_currentCase); CallNotesBox.Text = string.Empty; RefreshCallWorkspace(); await LoadCasesAsync();
     }
 
     private async void SaveEngagementPlan_Click(object sender, RoutedEventArgs e)

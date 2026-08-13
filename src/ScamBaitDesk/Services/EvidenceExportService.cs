@@ -37,6 +37,14 @@ public sealed class EvidenceExportService
             Add(archive, hashes, "draft-reply.txt", ScamAnalysisService.Redact(record.DraftReply));
             Add(archive, hashes, "timeline.json", JsonSerializer.Serialize(record.Timeline, JsonOptions));
             Add(archive, hashes, "reminders.json", JsonSerializer.Serialize(record.Reminders, JsonOptions));
+            Add(archive, hashes, "call-log.json", JsonSerializer.Serialize(record.Calls.Select(call => new
+            {
+                call.At,
+                Number = ScamAnalysisService.Redact(call.Number),
+                call.Outcome,
+                Notes = ScamAnalysisService.Redact(call.Notes),
+                call.RecordingConsentConfirmed
+            }), JsonOptions));
             Add(archive, hashes, "engagement-plan.json", JsonSerializer.Serialize(new
             {
                 record.EngagementStage,

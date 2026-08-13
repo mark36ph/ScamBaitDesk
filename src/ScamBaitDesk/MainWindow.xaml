@@ -128,6 +128,19 @@
                         </ListView>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
+                <TabViewItem x:Name="CallsTab" Header="Calls" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Manual dedicated-number calls only" Message="Numbers come only from the active case. This opens one number in your configured Windows VoIP app. No caller-ID spoofing, autodialling, covert recording, or automatic calling is available."/>
+                        <ComboBox x:Name="CallNumberBox" Header="Phone number extracted from this case"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Open in default VoIP app" Click="OpenVoip_Click"/><Button Content="Log call outcome" Click="LogCallOutcome_Click"/></StackPanel>
+                        <CheckBox x:Name="RecordingConsentBox" Content="Recording disclosure/consent and local-law requirements have been confirmed"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Recording not configured" Message="A supported VoIP provider and jurisdiction-specific recording policy must be configured before audio recording can be enabled."/>
+                        <ComboBox x:Name="CallOutcomeBox" Header="Outcome" SelectedIndex="0"><x:String>Connected</x:String><x:String>No answer</x:String><x:String>Voicemail</x:String><x:String>Disconnected</x:String><x:String>Declined</x:String><x:String>Other</x:String></ComboBox>
+                        <TextBox x:Name="CallNotesBox" Header="Redacted call notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120"/>
+                        <TextBlock Text="Case call audit log" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="CallLogList" MaxHeight="240"><ListView.ItemTemplate><DataTemplate x:DataType="local:CallLogRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
                 <TabViewItem x:Name="NotesTab" Header="Evidence notes" IsClosable="False">
                     <StackPanel Padding="16" Spacing="12">
                         <TextBlock Text="Case organisation" Style="{ThemeResource SubtitleTextBlockStyle}"/>

@@ -135,6 +135,11 @@ public sealed record ConnectionDiagnostic(string Component, bool Success, string
     public string Display => $"{(Success ? "PASS" : "FAIL")} · {Component} — {Detail}";
 }
 
+public sealed record CallLogRecord(Guid Id, DateTimeOffset At, string Number, string Outcome, string Notes, bool RecordingConsentConfirmed)
+{
+    public string Display => $"{At.LocalDateTime:g} · {Outcome} · {Number}{(RecordingConsentConfirmed ? " · recording consent confirmed" : string.Empty)}";
+}
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";
@@ -190,6 +195,7 @@ public sealed class CaseRecord
     public DateTimeOffset? EngagementStoppedAt { get; set; }
     public string EngagementStopReason { get; set; } = string.Empty;
     public List<FollowUpReminder> Reminders { get; set; } = [];
+    public List<CallLogRecord> Calls { get; set; } = [];
     public string EngagementStage { get; set; } = "Initial review";
     public string EngagementObjective { get; set; } = "Request independently verifiable information";
     public int OutboundMessageBudget { get; set; } = 10;
