@@ -6,7 +6,7 @@ namespace ScamBaitDesk.Services;
 
 public sealed class AppUpdateService
 {
-    public const int CurrentBuild = 41;
+    public const int CurrentBuild = 42;
     private const string BuildNumberApiUrl = "https://api.github.com/repos/mark36ph/ScamBaitDesk/contents/build-number.txt?ref=main";
     private const string BuildNumberUrl = "https://raw.githubusercontent.com/mark36ph/ScamBaitDesk/main/build-number.txt";
     public sealed record UpdateCheckResult(bool IsAvailable, int CurrentBuild, int LatestBuild, string Message);

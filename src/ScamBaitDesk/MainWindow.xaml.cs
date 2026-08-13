@@ -197,6 +197,7 @@ public sealed partial class MainWindow : Window
         {
             "Home" => new[] { GuideTab },
             "Inbox" => new[] { ReviewTab },
+            "Website" => new[] { WebsiteTab },
             "Case" => new[] { ReviewTab, NotesTab, TimelineTab },
             "Engage" => new[] { PlanTab, ReplyTab, CallsTab },
             "Investigate" => new[] { InsightTab, WebsiteTab, HeadersTab, IndicatorsTab, ToolsTab },

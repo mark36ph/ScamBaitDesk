@@ -58,7 +58,7 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Exports and merge-imports the complete local case library as a manual JSON backup.
 - Verifies exported evidence ZIP contents against their SHA-256 manifest entirely offline.
 - Shows a recent case-activity feed on the dashboard.
-- Checks website addresses locally for deceptive structure without contacting the target, and opens an existing VirusTotal report search only after explicit approval.
+- Provides a prominent standalone Website check from the sidebar, Start Here page, and command bar; it checks address structure locally without contacting the target and opens an existing VirusTotal report search only after explicit approval.
 - Replaces the empty dashboard workspace with a state-aware Start Here guide, plain-language tabs, guarded workflow shortcuts, and a recommended next step for the active message or case.
 - Maintains a redacted ledger of sender claims and their verification status.
 - Offers a safe verification-question bank that only inserts text into the manual draft.

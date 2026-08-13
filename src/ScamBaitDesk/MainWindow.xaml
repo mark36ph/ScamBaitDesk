@@ -15,6 +15,7 @@
             <AppBarButton Icon="Add" Label="Create case" Click="NewCase_Click"/>
             <AppBarButton Icon="Save" Label="Save changes" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
+            <AppBarButton Icon="Find" Label="Check website" Tag="Website" Click="NavigateTo_Click"/>
             <AppBarToggleButton x:Name="EmergencyStopButton" Icon="Stop" Label="GLOBAL SEND STOP" Click="EmergencyStop_Click"/>
             <CommandBar.SecondaryCommands><AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/><AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/><AppBarButton Icon="Repair" Label="Test mail connection" Click="TestConnection_Click"/><AppBarButton Icon="Contact" Label="Manage personas" Click="Personas_Click"/></CommandBar.SecondaryCommands>
             <CommandBar.Content>
@@ -40,6 +41,7 @@
                <ListViewItem Tag="Investigate"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE721;"/><TextBlock Text="4  Investigate"/></StackPanel></ListViewItem>
                <ListViewItem Tag="Engage"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE724;"/><TextBlock Text="5  Engage safely"/></StackPanel></ListViewItem>
                <ListViewItem Tag="Report"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE7C3;"/><TextBlock Text="6  Report &amp; export"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Website" Margin="0,8,0,0"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE721;"/><TextBlock Text="Website check" FontWeight="SemiBold"/></StackPanel></ListViewItem>
               </ListView>
               <Border Grid.Row="2" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="3"><TextBlock Text="ACTIVE CASE" FontSize="10" FontWeight="SemiBold" Opacity="0.55"/><TextBlock x:Name="NavCaseTitle" Text="No case selected" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="NavCaseStatus" Text="Choose a message or case" FontSize="12" Opacity="0.65" TextWrapping="Wrap"/></StackPanel></Border>
               <Button Grid.Row="3" Click="SettingsNav_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE713;"/><TextBlock Text="Settings"/></StackPanel></Button>
@@ -88,7 +90,7 @@
                     <ScrollViewer><StackPanel Padding="22" Spacing="18" MaxWidth="1000" HorizontalAlignment="Left">
                         <StackPanel Spacing="4"><TextBlock Text="Start here" Style="{ThemeResource TitleTextBlockStyle}" FontSize="30"/><TextBlock Text="ScamBait Desk keeps every action manual. Follow this path for each suspicious conversation." TextWrapping="Wrap" Opacity="0.7"/></StackPanel>
                         <InfoBar x:Name="NextStepBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Your next step"/>
-                        <Button x:Name="NextStepButton" Content="Open inbox and cases" Tag="Inbox" Click="NavigateTo_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button x:Name="NextStepButton" Content="Open inbox and cases" Tag="Inbox" Click="NavigateTo_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Check a website" Tag="Website" Click="NavigateTo_Click"/></StackPanel>
                         <Grid ColumnSpacing="12" RowSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="1 · Collect" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Configure the dedicated bait mailbox, sync it, and select a suspicious message." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Open inbox" Tag="Inbox" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
                             <Border Grid.Column="1" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="2 · Save" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Review the local risk signals, then create a case to preserve the conversation." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Review case" Tag="Case" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
