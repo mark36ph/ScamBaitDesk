@@ -4,6 +4,15 @@ namespace ScamBaitDesk.Services;
 
 public sealed class CaseRepository
 {
+    public static List<CaseChecklistItem> NewChecklist() =>
+    [
+        new(Guid.NewGuid(), "Review sender identity and authentication headers", false),
+        new(Guid.NewGuid(), "Record payment, urgency, and organisation claims", false),
+        new(Guid.NewGuid(), "Extract and review inert indicators", false),
+        new(Guid.NewGuid(), "Check the reply for private or real-world details", false),
+        new(Guid.NewGuid(), "Export evidence and prepare a report", false),
+        new(Guid.NewGuid(), "Stop engagement when the objective is complete", false)
+    ];
     private readonly string _directory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScamBaitDesk", "Cases");
 
@@ -51,6 +60,8 @@ public sealed class CaseRepository
                 record.EngagementStopReason ??= string.Empty;
                 record.Reminders ??= [];
                 record.Calls ??= [];
+                record.Checklist ??= [];
+                if (record.Checklist.Count == 0) record.Checklist = NewChecklist();
                 record.EngagementStage ??= "Initial review";
                 record.EngagementObjective ??= "Request independently verifiable information";
                 record.SenderClaims ??= [];

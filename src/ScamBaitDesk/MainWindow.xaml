@@ -108,7 +108,7 @@
                         <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="PersonaBox" Header="Fictional persona" DisplayMemberPath="Display" SelectionChanged="PersonaBox_SelectionChanged"/>
                             <ComboBox x:Name="TemplateBox" Grid.Column="1" Header="Reply template" DisplayMemberPath="Display"/>
-                            <Button Grid.Column="2" Content="Apply template" Click="ApplyTemplate_Click" VerticalAlignment="Bottom"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"><Button Content="Apply template" Click="ApplyTemplate_Click"/><Button Content="Add local template" Click="AddTemplate_Click"/></StackPanel>
                         </Grid>
                         <TextBox x:Name="DraftBox" Header="Plain-text reply" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="240" TextChanged="DraftBox_TextChanged"/>
                         <InfoBar x:Name="PrivacyBar" IsOpen="True" IsClosable="False" Title="Privacy guard"/>
@@ -215,6 +215,15 @@
                         <TextBlock Text="Manual follow-up reminders" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                         <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add reminder" Click="AddReminder_Click"/><Button Content="Remind me in 24 hours" Click="QuickReminder_Click"/><Button Content="Mark selected complete" Click="CompleteReminder_Click"/></StackPanel>
                         <ListView x:Name="ReminderList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:FollowUpReminder"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Investigation checklist" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Toggle selected" Click="ToggleChecklist_Click"/><Button Content="Reset checklist" Click="ResetChecklist_Click"/></StackPanel>
+                        <ListView x:Name="ChecklistList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseChecklistItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Safe indicator copy" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="Defangs case URLs and domains locally so they cannot be clicked accidentally." Opacity="0.7" TextWrapping="Wrap"/>
+                        <Button Content="Generate defanged indicators" Click="DefangIndicators_Click" HorizontalAlignment="Left"/>
+                        <TextBox x:Name="DefangedIndicatorsBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100"/>
+                        <TextBlock Text="Engagement session timer" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button x:Name="StartSessionButton" Content="Start session" Click="StartSession_Click"/><Button x:Name="StopSessionButton" Content="Stop and log" Click="StopSession_Click" IsEnabled="False"/><TextBlock x:Name="SessionTimerText" Text="00:00:00" VerticalAlignment="Center" FontFamily="Consolas"/></StackPanel>
                         <Button Content="Export lightweight case summary" Click="ExportSummary_Click" HorizontalAlignment="Left"/>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
@@ -248,6 +257,7 @@
                 <TabViewItem x:Name="SettingsTab" Header="Settings" IsClosable="False">
                     <ScrollViewer><StackPanel Padding="20" Spacing="16" MaxWidth="850" HorizontalAlignment="Left">
                         <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontSize="28"/>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="Free local mode" Style="{ThemeResource SubtitleTextBlockStyle}"/><InfoBar IsOpen="True" IsClosable="False" Severity="Success" Title="No paid services required" Message="Email casework, analysis, playbooks, checklists, local templates, evidence exports, reminders, VPN checks, and call logging run without a subscription. PSTN calling and audio recording remain disabled unless a provider is added later."/></StackPanel></Border>
                         <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Mail account" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Configure only your dedicated bait mailbox. Credentials are stored in Windows Credential Locker." TextWrapping="Wrap" Opacity="0.7"/><StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Inbox settings" Click="Settings_Click"/><Button Content="Connect Gmail OAuth" Click="ConnectGmail_Click"/><Button Content="Test connection" Click="TestConnection_Click"/></StackPanel></StackPanel></Border>
                         <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Inbox monitoring" Style="{ThemeResource SubtitleTextBlockStyle}"/><InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Inbox monitor off" Message="Enable monitoring to check every 60 seconds while the app is open."/><AppBarToggleButton x:Name="SettingsMonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click" HorizontalAlignment="Left"/></StackPanel></Border>
                         <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="FastVPN" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Open the official FastVPN client and verify whether Windows reports an active VPN tunnel. FastVPN does not provide a documented third-party connect command, so location selection and Connect remain in its app." TextWrapping="Wrap" Opacity="0.7"/><InfoBar x:Name="VpnStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="VPN status not checked"/><StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Open FastVPN" Click="OpenFastVpn_Click"/><Button Content="Check VPN status" Click="CheckVpn_Click"/></StackPanel></StackPanel></Border>

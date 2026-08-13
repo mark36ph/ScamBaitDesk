@@ -37,6 +37,9 @@ public sealed partial class MainWindow : Window
     private bool _syncInProgress;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _monitorTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _draftTimer;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _sessionTimer;
+    private DateTimeOffset? _sessionStartedAt;
+    private CaseRecord? _sessionCase;
 
     public MainWindow()
     {
@@ -46,7 +49,8 @@ public sealed partial class MainWindow : Window
         NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
-        Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); };
+        _sessionTimer = DispatcherQueue.CreateTimer(); _sessionTimer.Interval = TimeSpan.FromSeconds(1); _sessionTimer.Tick += SessionTimer_Tick;
+        Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); _sessionTimer.Stop(); };
         if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.Maximize();
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
@@ -59,6 +63,7 @@ public sealed partial class MainWindow : Window
         PlaybookBox.ItemsSource = _workspace.Playbooks;
         PlaybookBox.SelectedIndex = 0;
         _ = LoadPersonasAsync();
+        _ = LoadTemplatesAsync();
         _ = LoadSafetyStateAsync();
         _ = LoadCasesAsync();
     }
@@ -165,6 +170,12 @@ public sealed partial class MainWindow : Window
         PersonaBox.ItemsSource = _personas;
         if (_currentCase?.PersonaId is Guid personaId)
             PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == personaId);
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        TemplateBox.ItemsSource = await _workspace.LoadAllTemplatesAsync();
+        if (TemplateBox.Items.Count > 0) TemplateBox.SelectedIndex = 0;
     }
 
     private async Task LoadCasesAsync()
@@ -412,7 +423,8 @@ public sealed partial class MainWindow : Window
             Title = _selected.Subject,
             CreatedAt = now,
             Messages = ConversationService.FindConversation(_selected, _messages).ToList(),
-            Timeline = [new CaseEvent(now, "Created", "Case created from the dedicated inbox.")]
+            Timeline = [new CaseEvent(now, "Created", "Case created from the dedicated inbox.")],
+            Checklist = CaseRepository.NewChecklist()
         };
         _currentCase.Analysis = _analysis;
         _currentCase.DraftReply = DraftBox.Text;
@@ -698,6 +710,19 @@ public sealed partial class MainWindow : Window
         DraftBox.Text = template.Body + signoff;
     }
 
+    private async void AddTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var name = new TextBox { Header = "Template name" };
+        var category = new TextBox { Header = "Category", Text = "Custom" };
+        var body = new TextBox { Header = "Safe reply text", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 160 };
+        var panel = new StackPanel { Spacing = 10 }; panel.Children.Add(name); panel.Children.Add(category); panel.Children.Add(body);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Add local reply template", Content = panel, PrimaryButtonText = "Save locally", CloseButtonText = "Cancel" };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(name.Text) || string.IsNullOrWhiteSpace(body.Text)) return;
+        if (!_engagementSafety.Review(body.Text).CanSend) { await ShowMessage("Remove blocked private or financial material before saving this template."); return; }
+        await _workspace.SaveTemplateAsync(new ReplyTemplate(name.Text.Trim(), string.IsNullOrWhiteSpace(category.Text) ? "Custom" : category.Text.Trim(), body.Text.Trim()));
+        await LoadTemplatesAsync();
+    }
+
     private void SuggestLocalReply_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null) { DraftBox.Text = "Save or open the case before generating a conversation-aware suggestion."; return; }
@@ -761,6 +786,7 @@ public sealed partial class MainWindow : Window
         AttachmentList.ItemsSource = _currentCase.Messages.SelectMany(message => message.Attachments).ToList();
         DuplicateList.ItemsSource = _intelligence.FindDuplicates(_currentCase, _caseRecords);
         ReminderList.ItemsSource = _currentCase.Reminders.OrderBy(reminder => reminder.Completed).ThenBy(reminder => reminder.DueAt).ToList();
+        ChecklistList.ItemsSource = _currentCase.Checklist;
     }
 
     private void RefreshEngagementPlan()
@@ -976,6 +1002,58 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Reminder completed", selected.Note));
         await _cases.SaveAsync(_currentCase); RefreshCaseTools(); await LoadCasesAsync();
+    }
+
+    private async void ToggleChecklist_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null || ChecklistList.SelectedItem is not CaseChecklistItem selected) { await ShowMessage("Select a checklist item first."); return; }
+        var index = _currentCase.Checklist.FindIndex(item => item.Id == selected.Id); if (index < 0) return;
+        _currentCase.Checklist[index] = selected with { Completed = !selected.Completed };
+        _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Checklist", $"{_currentCase.Checklist[index].Label}: {(_currentCase.Checklist[index].Completed ? "complete" : "reopened")}."));
+        await _cases.SaveAsync(_currentCase); RefreshCaseTools();
+    }
+
+    private async void ResetChecklist_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        _currentCase.Checklist = CaseRepository.NewChecklist(); _currentCase.UpdatedAt = DateTimeOffset.Now;
+        _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Checklist", "Investigation checklist reset."));
+        await _cases.SaveAsync(_currentCase); RefreshCaseTools();
+    }
+
+    private void DefangIndicators_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { DefangedIndicatorsBox.Text = "Open or save a case first."; return; }
+        var values = _indicatorExtractor.Extract(_currentCase.Messages)
+            .Where(item => item.Type is IndicatorType.Url or IndicatorType.Domain or IndicatorType.IpAddress)
+            .Select(item => item.Value.Replace("https://", "hxxps://", StringComparison.OrdinalIgnoreCase).Replace("http://", "hxxp://", StringComparison.OrdinalIgnoreCase).Replace(".", "[.]"))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        DefangedIndicatorsBox.Text = values.Count == 0 ? "No URL, domain, or IP indicators found." : string.Join(Environment.NewLine, values);
+    }
+
+    private void StartSession_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { _ = ShowMessage("Open or save a case first."); return; }
+        _sessionCase = _currentCase; _sessionStartedAt = DateTimeOffset.Now; _sessionTimer.Start(); StartSessionButton.IsEnabled = false; StopSessionButton.IsEnabled = true; SessionTimerText.Text = "00:00:00";
+    }
+
+    private void SessionTimer_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        if (_sessionStartedAt is not null) SessionTimerText.Text = (DateTimeOffset.Now - _sessionStartedAt.Value).ToString(@"hh\:mm\:ss");
+    }
+
+    private async void StopSession_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sessionCase is null || _sessionStartedAt is null) return;
+        var stopped = DateTimeOffset.Now; var duration = stopped - _sessionStartedAt.Value;
+        _sessionTimer.Stop(); _sessionStartedAt = null; StartSessionButton.IsEnabled = true; StopSessionButton.IsEnabled = false;
+        var target = _sessionCase; _sessionCase = null;
+        target.EngagementSeconds += Math.Max(1, (long)duration.TotalSeconds); target.UpdatedAt = stopped;
+        var durationText = duration.ToString(@"hh\:mm\:ss");
+        var totalText = TimeSpan.FromSeconds(target.EngagementSeconds).ToString(@"hh\:mm\:ss");
+        target.Timeline.Add(new CaseEvent(stopped, "Work session", $"Logged {durationText} of manual case work; total {totalText}."));
+        await _cases.SaveAsync(target); await LoadCasesAsync();
     }
 
     private async void ExportSummary_Click(object sender, RoutedEventArgs e)

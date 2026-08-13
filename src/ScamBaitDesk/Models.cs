@@ -113,6 +113,11 @@ public sealed record EngagementPlaybook(string Name, string Stage, string Object
     public string Display => $"{Name} · {Stage}";
 }
 
+public sealed record CaseChecklistItem(Guid Id, string Label, bool Completed)
+{
+    public string Display => $"{(Completed ? "✓" : "○")} {Label}";
+}
+
 public sealed record NextActionItem(string Priority, string CaseTitle, string Action, Guid CaseId)
 {
     public string Display => $"{Priority} · {CaseTitle} — {Action}";
@@ -196,6 +201,8 @@ public sealed class CaseRecord
     public string EngagementStopReason { get; set; } = string.Empty;
     public List<FollowUpReminder> Reminders { get; set; } = [];
     public List<CallLogRecord> Calls { get; set; } = [];
+    public List<CaseChecklistItem> Checklist { get; set; } = [];
+    public long EngagementSeconds { get; set; }
     public string EngagementStage { get; set; } = "Initial review";
     public string EngagementObjective { get; set; } = "Request independently verifiable information";
     public int OutboundMessageBudget { get; set; } = 10;

@@ -45,6 +45,8 @@ public sealed class EvidenceExportService
                 Notes = ScamAnalysisService.Redact(call.Notes),
                 call.RecordingConsentConfirmed
             }), JsonOptions));
+            Add(archive, hashes, "investigation-checklist.json", JsonSerializer.Serialize(record.Checklist, JsonOptions));
+            Add(archive, hashes, "engagement-time.txt", TimeSpan.FromSeconds(record.EngagementSeconds).ToString(@"hh\:mm\:ss"));
             Add(archive, hashes, "engagement-plan.json", JsonSerializer.Serialize(new
             {
                 record.EngagementStage,

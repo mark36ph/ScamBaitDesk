@@ -8,6 +8,9 @@ public sealed class EngagementWorkspaceService
     private readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ScamBaitDesk", "personas.json");
+    private readonly string _templatePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ScamBaitDesk", "reply-templates.json");
 
     public IReadOnlyList<ReplyTemplate> Templates { get; } =
     [
@@ -66,6 +69,23 @@ public sealed class EngagementWorkspaceService
         if (index >= 0) personas[index] = persona; else personas.Add(persona);
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         await File.WriteAllTextAsync(_path, JsonSerializer.Serialize(personas, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    public async Task<IReadOnlyList<ReplyTemplate>> LoadAllTemplatesAsync()
+    {
+        if (!File.Exists(_templatePath)) return Templates;
+        var local = JsonSerializer.Deserialize<List<ReplyTemplate>>(await File.ReadAllTextAsync(_templatePath)) ?? [];
+        return Templates.Concat(local).ToList();
+    }
+
+    public async Task SaveTemplateAsync(ReplyTemplate template)
+    {
+        var local = File.Exists(_templatePath)
+            ? JsonSerializer.Deserialize<List<ReplyTemplate>>(await File.ReadAllTextAsync(_templatePath)) ?? []
+            : [];
+        local.Add(template);
+        Directory.CreateDirectory(Path.GetDirectoryName(_templatePath)!);
+        await File.WriteAllTextAsync(_templatePath, JsonSerializer.Serialize(local, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     public static string BuildReport(CaseRecord record, string destination)
