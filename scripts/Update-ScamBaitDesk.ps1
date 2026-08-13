@@ -40,7 +40,19 @@ function Set-UpdateStage([string]$message) {
     [System.Windows.Forms.Application]::DoEvents()
 }
 
+function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [string]$failureMessage) {
+    $process = Start-Process -FilePath $fileName -ArgumentList $arguments -WorkingDirectory $repository -NoNewWindow -PassThru
+    while (-not $process.HasExited) {
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 100
+        $process.Refresh()
+    }
+    if ($process.ExitCode -ne 0) { throw $failureMessage }
+}
+
 $window.Show()
+$window.Activate()
+$window.BringToFront()
 [System.Windows.Forms.Application]::DoEvents()
 
 try {
@@ -51,12 +63,10 @@ Set-Location $repository
 Start-Sleep -Seconds 2
 
 Set-UpdateStage "Downloading the latest version..."
-git pull
-if ($LASTEXITCODE -ne 0) { throw "git pull failed." }
+Invoke-UpdateProcess "git.exe" @("pull", "--ff-only") "Downloading the update failed."
 
 Set-UpdateStage "Building the application..."
-dotnet build .\ScamBaitDesk.sln -c Debug -p:Platform=x64 -p:PublishProfile=
-if ($LASTEXITCODE -ne 0) { throw "The Windows build failed; the installed app was not changed." }
+Invoke-UpdateProcess "dotnet.exe" @("build", ".\ScamBaitDesk.sln", "-c", "Debug", "-p:Platform=x64", "-p:PublishProfile=") "The Windows build failed; the installed app was not changed."
 
 $manifest = Get-ChildItem ".\src\ScamBaitDesk\bin\x64\Debug" -Recurse -Filter AppxManifest.xml |
     Sort-Object LastWriteTime -Descending |
