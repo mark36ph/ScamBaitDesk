@@ -38,10 +38,11 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
         Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); };
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 900));
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
         ShowIndicators([]);
@@ -60,6 +61,52 @@ public sealed partial class MainWindow : Window
         _globalEmergencyStop = await _safetyState.IsEmergencyStopEnabledAsync();
         EmergencyStopButton.IsChecked = _globalEmergencyStop;
         ReviewDraft();
+    }
+
+    private void ShellMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ShellMenu.SelectedItem is ListViewItem item && item.Tag is string destination) NavigateShell(destination);
+    }
+
+    private void NavigateShell(string destination)
+    {
+        if (CollectionPane is null || WorkspaceTabs is null) return;
+        CollectionPane.Visibility = destination is "Home" or "Inbox" ? Visibility.Visible : Visibility.Collapsed;
+        SetCollectionTabs(destination);
+        SetWorkspaceTabs(destination);
+        if (destination == "Settings") _ = OpenSettingsFromNavigationAsync();
+    }
+
+    private void SetCollectionTabs(string destination)
+    {
+        InboxCollectionTab.Visibility = destination == "Inbox" ? Visibility.Visible : Visibility.Collapsed;
+        CasesCollectionTab.Visibility = destination == "Inbox" ? Visibility.Visible : Visibility.Collapsed;
+        DashboardCollectionTab.Visibility = destination == "Home" ? Visibility.Visible : Visibility.Collapsed;
+        ActionsCollectionTab.Visibility = destination == "Home" ? Visibility.Visible : Visibility.Collapsed;
+        CollectionTabs.SelectedItem = destination == "Home" ? DashboardCollectionTab : InboxCollectionTab;
+    }
+
+    private void SetWorkspaceTabs(string destination)
+    {
+        var visible = destination switch
+        {
+            "Home" => new[] { InsightTab },
+            "Inbox" => new[] { ReviewTab },
+            "Case" => new[] { ReviewTab, NotesTab, TimelineTab, PlanTab },
+            "Engage" => new[] { ReplyTab },
+            "Investigate" => new[] { InsightTab, HeadersTab, IndicatorsTab, ToolsTab },
+            "Report" => new[] { ReportTab },
+            _ => new[] { InsightTab }
+        };
+        foreach (var tab in new[] { ReviewTab, ReplyTab, NotesTab, TimelineTab, HeadersTab, IndicatorsTab, ReportTab, ToolsTab, PlanTab, InsightTab })
+            tab.Visibility = visible.Contains(tab) ? Visibility.Visible : Visibility.Collapsed;
+        WorkspaceTabs.SelectedItem = visible[0];
+    }
+
+    private async Task OpenSettingsFromNavigationAsync()
+    {
+        await Task.Yield();
+        Settings_Click(this, new RoutedEventArgs());
     }
 
     private async Task LoadPersonasAsync()
@@ -172,6 +219,8 @@ public sealed partial class MainWindow : Window
     {
         _selected = MessageList.SelectedItem as InboxMessage;
         if (_selected is null) return;
+        NavCaseTitle.Text = _selected.Subject;
+        NavCaseStatus.Text = $"Unsaved conversation · {_selected.ReceivedDisplay}";
         _analysis = _analyzer.Analyze($"{_selected.Subject}\n{_selected.Body}");
         SubjectText.Text = _selected.Subject;
         SenderText.Text = $"From {_selected.Sender} · {_selected.ReceivedDisplay}";
@@ -242,6 +291,8 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = now;
         _currentCase.Timeline.Add(new CaseEvent(now, "Saved", $"Case saved with {_currentCase.Messages.Count} message(s)."));
         await _cases.SaveAsync(_currentCase);
+        NavCaseTitle.Text = _currentCase.Title;
+        NavCaseStatus.Text = _currentCase.Summary;
         await LoadCasesAsync();
         ShowStoppedState();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
@@ -282,6 +333,8 @@ public sealed partial class MainWindow : Window
     {
         _currentCase = CaseList.SelectedItem as CaseRecord;
         if (_currentCase is null) return;
+        NavCaseTitle.Text = _currentCase.Title;
+        NavCaseStatus.Text = _currentCase.Summary;
         _selected = _currentCase.Messages.OrderByDescending(message => message.ReceivedAt).FirstOrDefault();
         _analysis = _currentCase.Analysis;
         SubjectText.Text = _currentCase.Title;
@@ -326,6 +379,7 @@ public sealed partial class MainWindow : Window
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Status", $"Changed to {_currentCase.StatusDisplay}."));
         await _cases.SaveAsync(_currentCase);
+        NavCaseStatus.Text = _currentCase.Summary;
         await LoadCasesAsync();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
     }

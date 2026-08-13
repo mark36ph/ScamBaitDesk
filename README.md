@@ -55,6 +55,9 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Monitors the dedicated inbox every 60 seconds while the app is open and alerts when new received messages arrive.
 - Builds deterministic local conversation summaries of money requests, deadlines, organisation claims, contradictions, and unanswered verification questions.
 - Tests IMAP TLS/authentication and SMTP TLS/authentication without sending a message.
+- Uses a single persistent sidebar for Home, Inbox, Case, Engage, Investigate, Report, and Settings.
+- Shows only task-relevant tabs within each destination and keeps the active case visible in the sidebar.
+- Applies card surfaces, clearer spacing, a simplified primary command bar, and secondary overflow actions for a calmer visual hierarchy.
 
 ## Requirements
 
