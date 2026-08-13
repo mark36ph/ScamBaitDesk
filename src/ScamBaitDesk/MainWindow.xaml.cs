@@ -4,6 +4,7 @@ using ScamBaitDesk.Services;
 using Windows.ApplicationModel.DataTransfer;
 using MimeKit;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace ScamBaitDesk;
 
@@ -131,6 +132,7 @@ public sealed partial class MainWindow : Window
         SetCollectionTabs(destination);
         SetWorkspaceTabs(destination);
         RefreshGuidance();
+        if (destination == "Settings") _ = RefreshGoogleSetupStatusAsync();
     }
 
     private void SetWindowIcon()
@@ -297,19 +299,67 @@ public sealed partial class MainWindow : Window
         var host = new TextBox { Header = "IMAP host", Text = current?.Host ?? "imap.gmail.com" };
         var port = new NumberBox { Header = "Port", Value = current?.Port ?? 993, Minimum = 1, Maximum = 65535 };
         var user = new TextBox { Header = "Inbox username", Text = current?.Username ?? string.Empty };
-        var password = new PasswordBox { Header = "App password" };
+        var password = new PasswordBox { Header = "App password", PlaceholderText = "Stored securely in Windows Credential Locker" };
         var smtpHost = new TextBox { Header = "SMTP host", Text = current?.SmtpHost ?? "smtp.gmail.com" };
         var smtpPort = new NumberBox { Header = "SMTP port", Value = current?.SmtpPort ?? 587, Minimum = 1, Maximum = 65535 };
         var smtpSsl = new CheckBox { Content = "SMTP uses implicit TLS (usually port 465)", IsChecked = current?.SmtpUseSsl ?? false };
         var authentication = new ComboBox { Header = "Authentication", ItemsSource = new[] { "App password", "Gmail OAuth" }, SelectedIndex = current?.Authentication == MailAuthentication.GmailOAuth ? 1 : 0 };
-        var oauthClientId = new TextBox { Header = "Google OAuth desktop client ID", Text = current?.OAuthClientId ?? string.Empty, PlaceholderText = "Required only for Gmail OAuth" };
+        var oauthClientId = new TextBox { Header = "Google OAuth desktop client ID", Text = current?.OAuthClientId ?? string.Empty, PlaceholderText = "example.apps.googleusercontent.com" };
+        var importStatus = new InfoBar { IsOpen = false, IsClosable = true };
+        var importCredentials = new Button { Content = "Import downloaded credentials.json", HorizontalAlignment = HorizontalAlignment.Left };
+        importCredentials.Click += async (_, _) =>
+        {
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads };
+                picker.FileTypeFilter.Add(".json");
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+                var file = await picker.PickSingleFileAsync();
+                if (file is null) return;
+                if ((await file.GetBasicPropertiesAsync()).Size > 1_048_576) throw new InvalidOperationException("The credentials file is unexpectedly large.");
+                using var document = JsonDocument.Parse(await Windows.Storage.FileIO.ReadTextAsync(file));
+                var root = document.RootElement;
+                string? clientId = null;
+                if (root.TryGetProperty("installed", out var installed) && installed.TryGetProperty("client_id", out var installedClientId)) clientId = installedClientId.GetString();
+                else if (root.TryGetProperty("client_id", out var directClientId)) clientId = directClientId.GetString();
+                if (string.IsNullOrWhiteSpace(clientId) || !clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("This is not a Google Desktop app credentials file. In Google Cloud, create an OAuth client with application type Desktop app.");
+                oauthClientId.Text = clientId;
+                importStatus.Title = "Desktop Client ID imported";
+                importStatus.Message = "Only the Client ID was copied. ScamBait Desk does not retain the client secret or the JSON file.";
+                importStatus.Severity = InfoBarSeverity.Success;
+                importStatus.IsOpen = true;
+            }
+            catch (Exception ex)
+            {
+                importStatus.Title = "Could not import credentials";
+                importStatus.Message = ex.Message;
+                importStatus.Severity = InfoBarSeverity.Error;
+                importStatus.IsOpen = true;
+            }
+        };
+        var oauthPanel = new StackPanel { Spacing = 8 };
+        oauthPanel.Children.Add(oauthClientId);
+        oauthPanel.Children.Add(importCredentials);
+        oauthPanel.Children.Add(new TextBlock { Text = "Use the JSON downloaded for a Google OAuth Desktop app. No API key or client secret is needed.", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+        oauthPanel.Children.Add(importStatus);
+        void RefreshAuthenticationFields()
+        {
+            var useGoogle = authentication.SelectedIndex == 1;
+            oauthPanel.Visibility = useGoogle ? Visibility.Visible : Visibility.Collapsed;
+            password.Visibility = useGoogle ? Visibility.Collapsed : Visibility.Visible;
+        }
+        authentication.SelectionChanged += (_, _) => RefreshAuthenticationFields();
+        RefreshAuthenticationFields();
         var panel = new StackPanel { Spacing = 10 };
-        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(smtpHost); panel.Children.Add(smtpPort); panel.Children.Add(smtpSsl); panel.Children.Add(user); panel.Children.Add(authentication); panel.Children.Add(oauthClientId); panel.Children.Add(password);
+        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(smtpHost); panel.Children.Add(smtpPort); panel.Children.Add(smtpSsl); panel.Children.Add(user); panel.Children.Add(authentication); panel.Children.Add(oauthPanel); panel.Children.Add(password);
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Dedicated test inbox", Content = panel, PrimaryButtonText = "Save", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         var auth = authentication.SelectedIndex == 1 ? MailAuthentication.GmailOAuth : MailAuthentication.AppPassword;
         if (string.IsNullOrWhiteSpace(host.Text) || string.IsNullOrWhiteSpace(smtpHost.Text) || string.IsNullOrWhiteSpace(user.Text) || (auth == MailAuthentication.AppPassword && string.IsNullOrWhiteSpace(password.Password)) || (auth == MailAuthentication.GmailOAuth && string.IsNullOrWhiteSpace(oauthClientId.Text))) { await ShowMessage("Mail hosts and username are required. App-password mode needs a password; Gmail OAuth needs a desktop client ID."); return; }
+        if (auth == MailAuthentication.GmailOAuth && !oauthClientId.Text.Trim().EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)) { await ShowMessage("The Google Client ID should come from an OAuth Desktop app and end with .apps.googleusercontent.com. You can import Google's downloaded credentials.json instead of typing it."); return; }
         await _settings.SaveAsync(new InboxSettings(host.Text.Trim(), (int)port.Value, user.Text.Trim(), smtpHost.Text.Trim(), (int)smtpPort.Value, smtpSsl.IsChecked == true, auth, oauthClientId.Text.Trim()), password.Password);
+        await RefreshGoogleSetupStatusAsync();
     }
 
     private async void ConnectGmail_Click(object sender, RoutedEventArgs e)
@@ -319,9 +369,47 @@ public sealed partial class MainWindow : Window
             var settings = await _settings.LoadAsync();
             if (settings is null || settings.Authentication != MailAuthentication.GmailOAuth) { await ShowMessage("Choose Gmail OAuth and enter a Google desktop client ID in Inbox settings first."); return; }
             await _googleOAuth.AuthorizeAsync(settings.Username, settings.OAuthClientId);
+            await RefreshGoogleSetupStatusAsync();
             await ShowMessage("Gmail OAuth connected. The refresh token is stored in Windows Credential Locker.");
         }
         catch (Exception ex) { await ShowMessage($"Gmail OAuth connection failed: {ex.Message}"); }
+    }
+
+    private async Task RefreshGoogleSetupStatusAsync()
+    {
+        if (GoogleSetupStatusBar is null) return;
+        var settings = await _settings.LoadAsync();
+        if (settings is null || settings.Authentication != MailAuthentication.GmailOAuth || string.IsNullOrWhiteSpace(settings.OAuthClientId))
+        {
+            GoogleSetupStatusBar.Title = "Google is not configured";
+            GoogleSetupStatusBar.Message = "Follow the checklist below, then choose Configure inbox now.";
+            GoogleSetupStatusBar.Severity = InfoBarSeverity.Informational;
+        }
+        else if (_googleOAuth.HasStoredAuthorization(settings.Username))
+        {
+            GoogleSetupStatusBar.Title = "Google account connected";
+            GoogleSetupStatusBar.Message = $"Authorization is stored securely for {settings.Username}. Use Test connection to verify IMAP and SMTP.";
+            GoogleSetupStatusBar.Severity = InfoBarSeverity.Success;
+        }
+        else
+        {
+            GoogleSetupStatusBar.Title = "Desktop Client ID saved";
+            GoogleSetupStatusBar.Message = "Choose Connect Google and approve access using the dedicated bait Gmail account.";
+            GoogleSetupStatusBar.Severity = InfoBarSeverity.Warning;
+        }
+        GoogleSetupStatusBar.IsOpen = true;
+    }
+
+    private async void OpenGoogleSetupPage_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string address || !Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            !(uri.Host.Equals("console.cloud.google.com", StringComparison.OrdinalIgnoreCase) || uri.Host.Equals("developers.google.com", StringComparison.OrdinalIgnoreCase)))
+        {
+            await ShowMessage("Only official Google setup pages can be opened from this guide.");
+            return;
+        }
+        if (!await Windows.System.Launcher.LaunchUriAsync(uri)) await ShowMessage("Windows could not open the Google setup page in your browser.");
     }
 
     private async void TestConnection_Click(object sender, RoutedEventArgs e)

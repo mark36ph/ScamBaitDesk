@@ -46,6 +46,8 @@ public sealed class GoogleOAuthService
         return (await ExchangeAsync(new Dictionary<string, string> { ["client_id"] = clientId, ["refresh_token"] = refresh, ["grant_type"] = "refresh_token" }, cancellationToken)).AccessToken;
     }
 
+    public bool HasStoredAuthorization(string username) => !string.IsNullOrWhiteSpace(username) && LoadRefreshToken(username) is not null;
+
     private static async Task<TokenResponse> ExchangeAsync(Dictionary<string, string> values, CancellationToken cancellationToken)
     {
         using var client = new HttpClient(); using var content = new FormUrlEncodedContent(values);
