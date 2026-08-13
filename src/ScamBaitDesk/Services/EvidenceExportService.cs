@@ -46,6 +46,7 @@ public sealed class EvidenceExportService
                 OutboundMessagesUsed = record.OutboundMessages.Count
             }, JsonOptions));
             Add(archive, hashes, "sender-claims.json", JsonSerializer.Serialize(record.SenderClaims, JsonOptions));
+            Add(archive, hashes, "sourced-indicators.json", JsonSerializer.Serialize(record.ImportedIndicators, JsonOptions));
             Add(archive, hashes, "attachment-metadata.json", JsonSerializer.Serialize(record.Messages.SelectMany(message => message.Attachments.Select(attachment => new
             {
                 MessageId = message.Id,
@@ -76,7 +77,7 @@ public sealed class EvidenceExportService
 
             var manifest = JsonSerializer.Serialize(new
             {
-                Format = "ScamBait Desk evidence export v4",
+                Format = "ScamBait Desk evidence export v5",
                 ExportedAtUtc = DateTimeOffset.UtcNow,
                 CaseId = record.Id,
                 Redaction = "Message bodies, sender display, subjects, notes, and drafts were processed by the local redactor. Headers are preserved as evidence and may contain personal data.",

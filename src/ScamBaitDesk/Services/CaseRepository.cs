@@ -51,6 +51,7 @@ public sealed class CaseRepository
                 record.EngagementStage ??= "Initial review";
                 record.EngagementObjective ??= "Request independently verifiable information";
                 record.SenderClaims ??= [];
+                record.ImportedIndicators ??= [];
                 if (record.OutboundMessageBudget <= 0) record.OutboundMessageBudget = 10;
                 records.Add(record);
             }

@@ -44,6 +44,12 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Offers a safe verification-question bank that only inserts text into the manual draft.
 - Warns when a reply may be inconsistent with the assigned fictional persona.
 - Blocks sending when the case budget is exhausted, its deadline has passed, or its engagement stage is Ended.
+- Supports Gmail OAuth 2.0 desktop authorization with PKCE and stores refresh tokens in Windows Credential Locker.
+- Synchronises recent Inbox and Sent messages read-only so cases can show both sides of a conversation.
+- Generates deterministic, fully local reply suggestions from case history and recorded claim contradictions.
+- Shows a unified Next Actions queue across active cases.
+- Accepts manually entered email/domain indicators only with provenance, an authorization note, and a no-first-contact confirmation.
+- Does not crawl the internet, harvest addresses, or initiate contact from imported indicators.
 
 ## Requirements
 
@@ -58,6 +64,10 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 4. Select **Sync inbox**. Messages are fetched with `ReadOnly` folder access.
 
 Common values: Gmail IMAP `imap.gmail.com:993` and SMTP `smtp.gmail.com:587`; Outlook IMAP `outlook.office365.com:993` and SMTP `smtp.office365.com:587`. Use an app-specific password where supported; do not reuse a personal account password.
+
+### Gmail OAuth setup
+
+Create an OAuth client of type **Desktop app** in a Google Cloud project, configure its consent screen, and add the dedicated bait account as a test user while the app remains in testing. In Inbox settings choose **Gmail OAuth**, paste the desktop client ID, save, then choose **Connect Gmail OAuth**. The app uses the system browser, a loopback redirect, PKCE, and the `https://mail.google.com/` scope. No client secret is stored in the repository.
 
 ## Safety boundary
 

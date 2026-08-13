@@ -1,12 +1,16 @@
 namespace ScamBaitDesk;
 
+public enum MailAuthentication { AppPassword, GmailOAuth }
+
 public sealed record InboxSettings(
     string Host,
     int Port,
     string Username,
     string SmtpHost = "",
     int SmtpPort = 587,
-    bool SmtpUseSsl = false);
+    bool SmtpUseSsl = false,
+    MailAuthentication Authentication = MailAuthentication.AppPassword,
+    string OAuthClientId = "");
 
 public sealed record InboxMessage(
     string Id,
@@ -19,6 +23,9 @@ public sealed record InboxMessage(
     public string ConversationKey => ConversationService.GetKey(this);
     public Dictionary<string, List<string>> Headers { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public List<AttachmentRecord> Attachments { get; init; } = [];
+    public bool IsOutbound { get; init; }
+    public string Recipient { get; init; } = string.Empty;
+    public string DirectionDisplay => IsOutbound ? "Sent" : "Received";
 }
 
 public sealed record AttachmentRecord(string FileName, string MediaType, long? Size, string ContentId)
@@ -101,6 +108,16 @@ public sealed record SafeQuestion(string Category, string Text)
     public string Display => $"{Category} · {Text}";
 }
 
+public sealed record NextActionItem(string Priority, string CaseTitle, string Action, Guid CaseId)
+{
+    public string Display => $"{Priority} · {CaseTitle} — {Action}";
+}
+
+public sealed record ProvenanceIndicator(Guid Id, DateTimeOffset AddedAt, string Value, string Source, string EvidenceNote)
+{
+    public string Display => $"{Value} · source: {Source}";
+}
+
 public sealed record ForensicFinding(string Label, string Value, string Assessment)
 {
     public string Display => $"{Label}: {Value}";
@@ -159,6 +176,7 @@ public sealed class CaseRecord
     public int OutboundMessageBudget { get; set; } = 10;
     public DateTimeOffset? EngagementDeadline { get; set; }
     public List<SenderClaim> SenderClaims { get; set; } = [];
+    public List<ProvenanceIndicator> ImportedIndicators { get; set; } = [];
     public string StatusDisplay => Status switch
     {
         CaseStatus.AwaitingVerification => "Awaiting verification",
@@ -172,7 +190,7 @@ public static class ConversationService
 {
     public static string GetKey(InboxMessage message)
     {
-        var sender = message.Sender.Trim().ToLowerInvariant();
+        var sender = (message.IsOutbound ? message.Recipient : message.Sender).Trim().ToLowerInvariant();
         var subject = System.Text.RegularExpressions.Regex.Replace(
             message.Subject, @"^\s*((re|fw|fwd)\s*:\s*)+", string.Empty,
             System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim().ToLowerInvariant();

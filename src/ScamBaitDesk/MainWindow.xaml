@@ -9,6 +9,7 @@
         <CommandBar DefaultLabelPosition="Right">
             <AppBarButton Icon="Sync" Label="Sync inbox" Click="Sync_Click"/>
             <AppBarButton Icon="Setting" Label="Inbox settings" Click="Settings_Click"/>
+            <AppBarButton Icon="Permissions" Label="Connect Gmail OAuth" Click="ConnectGmail_Click"/>
             <AppBarButton Icon="Save" Label="Save case" Click="SaveCase_Click"/>
             <AppBarButton Icon="Download" Label="Export evidence" Click="ExportEvidence_Click"/>
             <AppBarButton Icon="Contact" Label="Personas" Click="Personas_Click"/>
@@ -37,6 +38,7 @@
                             <StackPanel Padding="4" Spacing="3">
                                 <TextBlock Text="{x:Bind Subject}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="{x:Bind Sender}" Opacity="0.72" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{x:Bind DirectionDisplay}" FontSize="12" Opacity="0.6"/>
                                 <TextBlock Text="{x:Bind ReceivedDisplay}" FontSize="12" Opacity="0.6"/>
                             </StackPanel>
                         </DataTemplate>
@@ -57,6 +59,7 @@
                       <ListView x:Name="PendingList" MaxHeight="300"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord"><StackPanel Margin="0,4"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold"/><TextBlock Text="{x:Bind Summary}" FontSize="12" Opacity="0.7"/></StackPanel></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                   </TabViewItem>
+                  <TabViewItem Header="Next actions" IsClosable="False"><ListView x:Name="NextActionList"><ListView.ItemTemplate><DataTemplate x:DataType="local:NextActionItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="6"/></DataTemplate></ListView.ItemTemplate></ListView></TabViewItem>
                 </TabView>
             </Grid>
 
@@ -102,6 +105,7 @@
                         <ItemsControl x:Name="ConsistencyFindings"><ItemsControl.ItemTemplate><DataTemplate x:DataType="local:PrivacyFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Copy draft" Click="CopyDraft_Click"/>
+                            <Button Content="Suggest from case locally" Click="SuggestLocalReply_Click"/>
                             <Button x:Name="SendButton" Content="Review and send manually" Click="SendReply_Click" IsEnabled="False"/>
                         </StackPanel>
                         <TextBlock Text="Outbound audit log" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,10,0,0"/>
@@ -202,6 +206,10 @@
                         <TextBlock Text="Sender claim ledger" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                         <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Record sender claim" Click="AddClaim_Click"/><Button Content="Mark selected contradicted" Click="ContradictClaim_Click"/></StackPanel>
                         <ListView x:Name="ClaimList" MaxHeight="260"><ListView.ItemTemplate><DataTemplate x:DataType="local:SenderClaim"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Passive indicator intake" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="No prospecting" Message="Add only indicators from reports or messages you are authorised to investigate. This never searches for addresses or starts contact."/>
+                        <Button Content="Add sourced indicator" Click="AddSourcedIndicator_Click" HorizontalAlignment="Left"/>
+                        <ListView x:Name="SourcedIndicatorList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ProvenanceIndicator"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
             </TabView>

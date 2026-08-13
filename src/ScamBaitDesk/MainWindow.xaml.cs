@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     private readonly EngagementWorkspaceService _workspace = new();
     private readonly CaseIntelligenceService _intelligence = new();
     private readonly SafetyStateService _safetyState = new();
+    private readonly GoogleOAuthService _googleOAuth = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -73,9 +74,8 @@ public sealed partial class MainWindow : Window
         {
             var settings = await _settings.LoadAsync();
             if (settings is null) { await ShowMessage("Set up the dedicated inbox first."); return; }
-            var password = _settings.LoadPassword(settings.Username);
-            if (string.IsNullOrWhiteSpace(password)) { await ShowMessage("The inbox credential is missing. Open Inbox settings."); return; }
-            _messages = (await _inbox.FetchAsync(settings, password)).ToList();
+            var credential = await GetMailCredentialAsync(settings);
+            _messages = (await _inbox.FetchAsync(settings, credential, settings.Authentication == MailAuthentication.GmailOAuth)).ToList();
             ApplyFilter();
         }
         catch (Exception ex) { await ShowMessage($"Inbox sync failed: {ex.Message}"); }
@@ -91,12 +91,34 @@ public sealed partial class MainWindow : Window
         var smtpHost = new TextBox { Header = "SMTP host", Text = current?.SmtpHost ?? "smtp.gmail.com" };
         var smtpPort = new NumberBox { Header = "SMTP port", Value = current?.SmtpPort ?? 587, Minimum = 1, Maximum = 65535 };
         var smtpSsl = new CheckBox { Content = "SMTP uses implicit TLS (usually port 465)", IsChecked = current?.SmtpUseSsl ?? false };
+        var authentication = new ComboBox { Header = "Authentication", ItemsSource = new[] { "App password", "Gmail OAuth" }, SelectedIndex = current?.Authentication == MailAuthentication.GmailOAuth ? 1 : 0 };
+        var oauthClientId = new TextBox { Header = "Google OAuth desktop client ID", Text = current?.OAuthClientId ?? string.Empty, PlaceholderText = "Required only for Gmail OAuth" };
         var panel = new StackPanel { Spacing = 10 };
-        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(smtpHost); panel.Children.Add(smtpPort); panel.Children.Add(smtpSsl); panel.Children.Add(user); panel.Children.Add(password);
+        panel.Children.Add(host); panel.Children.Add(port); panel.Children.Add(smtpHost); panel.Children.Add(smtpPort); panel.Children.Add(smtpSsl); panel.Children.Add(user); panel.Children.Add(authentication); panel.Children.Add(oauthClientId); panel.Children.Add(password);
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Dedicated test inbox", Content = panel, PrimaryButtonText = "Save", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        if (string.IsNullOrWhiteSpace(host.Text) || string.IsNullOrWhiteSpace(smtpHost.Text) || string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(password.Password)) { await ShowMessage("IMAP host, SMTP host, username, and app password are required."); return; }
-        await _settings.SaveAsync(new InboxSettings(host.Text.Trim(), (int)port.Value, user.Text.Trim(), smtpHost.Text.Trim(), (int)smtpPort.Value, smtpSsl.IsChecked == true), password.Password);
+        var auth = authentication.SelectedIndex == 1 ? MailAuthentication.GmailOAuth : MailAuthentication.AppPassword;
+        if (string.IsNullOrWhiteSpace(host.Text) || string.IsNullOrWhiteSpace(smtpHost.Text) || string.IsNullOrWhiteSpace(user.Text) || (auth == MailAuthentication.AppPassword && string.IsNullOrWhiteSpace(password.Password)) || (auth == MailAuthentication.GmailOAuth && string.IsNullOrWhiteSpace(oauthClientId.Text))) { await ShowMessage("Mail hosts and username are required. App-password mode needs a password; Gmail OAuth needs a desktop client ID."); return; }
+        await _settings.SaveAsync(new InboxSettings(host.Text.Trim(), (int)port.Value, user.Text.Trim(), smtpHost.Text.Trim(), (int)smtpPort.Value, smtpSsl.IsChecked == true, auth, oauthClientId.Text.Trim()), password.Password);
+    }
+
+    private async void ConnectGmail_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var settings = await _settings.LoadAsync();
+            if (settings is null || settings.Authentication != MailAuthentication.GmailOAuth) { await ShowMessage("Choose Gmail OAuth and enter a Google desktop client ID in Inbox settings first."); return; }
+            await _googleOAuth.AuthorizeAsync(settings.Username, settings.OAuthClientId);
+            await ShowMessage("Gmail OAuth connected. The refresh token is stored in Windows Credential Locker.");
+        }
+        catch (Exception ex) { await ShowMessage($"Gmail OAuth connection failed: {ex.Message}"); }
+    }
+
+    private async Task<string> GetMailCredentialAsync(InboxSettings settings)
+    {
+        if (settings.Authentication == MailAuthentication.GmailOAuth)
+            return await _googleOAuth.GetAccessTokenAsync(settings.Username, settings.OAuthClientId);
+        return _settings.LoadPassword(settings.Username) ?? throw new InvalidOperationException("The mail credential is missing. Open Inbox settings.");
     }
 
     private void MessageList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -113,7 +135,7 @@ public sealed partial class MainWindow : Window
         SignalList.ItemsSource = _analysis.Signals;
         MessageBody.Text = _analysis.RedactedText;
         DraftBox.Text = ScamAnalysisService.CreateSafeDraft(_selected);
-        RecipientText.Text = TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
+        RecipientText.Text = TryGetCounterpartyAddress(_selected, out var recipient) ? $"Locked recipient: {recipient}" : "Counterparty address could not be parsed";
         NotesBox.Text = string.Empty;
         _currentCase = null;
         PersonaBox.SelectedItem = null;
@@ -218,7 +240,7 @@ public sealed partial class MainWindow : Window
         SenderText.Text = $"{_currentCase.Messages.Count} message(s) · created {_currentCase.CreatedAt.LocalDateTime:g}";
         MessageBody.Text = string.Join("\n\n──────────\n\n", _currentCase.Messages.OrderBy(message => message.ReceivedAt).Select(message => $"{message.ReceivedDisplay} · {message.Sender}\n{ScamAnalysisService.Redact(message.Body)}"));
         DraftBox.Text = _currentCase.DraftReply;
-        RecipientText.Text = _selected is not null && TryGetSenderAddress(_selected.Sender, out var recipient) ? $"Locked recipient: {recipient}" : "Sender address could not be parsed";
+        RecipientText.Text = _selected is not null && TryGetCounterpartyAddress(_selected, out var recipient) ? $"Locked recipient: {recipient}" : "Counterparty address could not be parsed";
         OutboundList.ItemsSource = _currentCase.OutboundMessages.OrderByDescending(item => item.SentAt);
         PersonaBox.SelectedItem = _personas.FirstOrDefault(item => item.Id == _currentCase.PersonaId);
         ShowStoppedState();
@@ -260,7 +282,7 @@ public sealed partial class MainWindow : Window
 
     private async void Reputation_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null || !TryGetDomain(_selected.Sender, out var domain)) { await ShowMessage("No sender domain was found."); return; }
+        if (_selected is null || !TryGetDomain(_selected.IsOutbound ? _selected.Recipient : _selected.Sender, out var domain)) { await ShowMessage("No counterparty domain was found."); return; }
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "External reputation lookup", Content = $"Open VirusTotal and disclose only this domain?\n\n{domain}\n\nNo message text or case notes will be sent.", PrimaryButtonText = "Open lookup", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         await Windows.System.Launcher.LaunchUriAsync(new Uri($"https://www.virustotal.com/gui/domain/{Uri.EscapeDataString(domain)}"));
@@ -322,7 +344,7 @@ public sealed partial class MainWindow : Window
 
     private async void SendReply_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null || !TryGetSenderAddress(_selected.Sender, out var recipient)) { await ShowMessage("The selected sender address could not be parsed."); return; }
+        if (_selected is null || !TryGetCounterpartyAddress(_selected, out var recipient)) { await ShowMessage("The selected counterparty address could not be parsed."); return; }
         var review = _engagementSafety.Review(DraftBox.Text);
         if (!review.CanSend) { await ShowMessage("Sending is blocked until all privacy-guard issues are removed."); return; }
         if (_currentCase is null) { await ShowMessage("Save or open the case before sending so the engagement has an audit trail."); return; }
@@ -350,10 +372,9 @@ public sealed partial class MainWindow : Window
             SendButton.IsEnabled = false;
             var settings = await _settings.LoadAsync();
             if (settings is null) { await ShowMessage("Configure the dedicated mail account first."); return; }
-            var password = _settings.LoadPassword(settings.Username);
-            if (string.IsNullOrWhiteSpace(password)) { await ShowMessage("The mail credential is missing. Open Inbox settings."); return; }
+            var credential = await GetMailCredentialAsync(settings);
             var subject = _selected.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase) ? _selected.Subject : $"Re: {_selected.Subject}";
-            var messageId = await _smtp.SendAsync(settings, password, recipient, subject, DraftBox.Text);
+            var messageId = await _smtp.SendAsync(settings, credential, recipient, subject, DraftBox.Text, useOAuth: settings.Authentication == MailAuthentication.GmailOAuth);
             var now = DateTimeOffset.Now;
             _currentCase.DraftReply = DraftBox.Text;
             _currentCase.OutboundMessages.Add(new OutboundMessageRecord(now, recipient, subject, ScamAnalysisService.Redact(DraftBox.Text), messageId));
@@ -374,6 +395,9 @@ public sealed partial class MainWindow : Window
         address = string.Empty;
         return false;
     }
+
+    private static bool TryGetCounterpartyAddress(InboxMessage message, out string address) =>
+        TryGetSenderAddress(message.IsOutbound ? message.Recipient : message.Sender, out address);
 
     private async void Personas_Click(object sender, RoutedEventArgs e)
     {
@@ -420,6 +444,13 @@ public sealed partial class MainWindow : Window
         DraftBox.Text = template.Body + signoff;
     }
 
+    private void SuggestLocalReply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { DraftBox.Text = "Save or open the case before generating a conversation-aware suggestion."; return; }
+        var persona = PersonaBox.SelectedItem as PersonaProfile;
+        DraftBox.Text = _intelligence.SuggestLocalReply(_currentCase) + (persona is null ? string.Empty : $"\n\n{persona.Name}");
+    }
+
     private async void StopEngagement_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null) { await ShowMessage("Open or save a case before stopping an engagement."); return; }
@@ -463,6 +494,7 @@ public sealed partial class MainWindow : Window
     {
         if (DashboardList is null || PendingList is null) return;
         DashboardList.ItemsSource = _intelligence.Dashboard(_caseRecords);
+        NextActionList.ItemsSource = _intelligence.NextActions(_caseRecords);
         PendingList.ItemsSource = _caseRecords.Where(record =>
             record.Status != CaseStatus.Closed || record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
             .OrderByDescending(record => record.Reminders.Any(reminder => !reminder.Completed && reminder.DueAt <= DateTimeOffset.Now))
@@ -486,6 +518,7 @@ public sealed partial class MainWindow : Window
         MessageBudgetBox.Value = _currentCase.OutboundMessageBudget;
         EngagementDeadlinePicker.Date = _currentCase.EngagementDeadline ?? DateTimeOffset.Now.AddDays(7);
         ClaimList.ItemsSource = _currentCase.SenderClaims.OrderByDescending(item => item.RecordedAt).ToList();
+        SourcedIndicatorList.ItemsSource = _currentCase.ImportedIndicators.OrderByDescending(item => item.AddedAt).ToList();
     }
 
     private async void SaveEngagementPlan_Click(object sender, RoutedEventArgs e)
@@ -528,6 +561,26 @@ public sealed partial class MainWindow : Window
         _currentCase.SenderClaims[index] = selected with { VerificationStatus = "Contradicted" };
         _currentCase.UpdatedAt = DateTimeOffset.Now;
         _currentCase.Timeline.Add(new CaseEvent(_currentCase.UpdatedAt, "Claim contradicted", selected.Category));
+        await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
+    }
+
+    private async void AddSourcedIndicator_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentCase is null) { await ShowMessage("Open or save a case first."); return; }
+        var value = new TextBox { Header = "Email address or domain" };
+        var source = new TextBox { Header = "Source", PlaceholderText = "For example: message received in dedicated inbox" };
+        var evidence = new TextBox { Header = "Why you are authorised to investigate it", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
+        var confirmation = new CheckBox { Content = "I will not use this entry for unsolicited first contact." };
+        var panel = new StackPanel { Spacing = 10 }; panel.Children.Add(value); panel.Children.Add(source); panel.Children.Add(evidence); panel.Children.Add(confirmation);
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Add sourced indicator", Content = panel, PrimaryButtonText = "Add to case", CloseButtonText = "Cancel" };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (string.IsNullOrWhiteSpace(value.Text) || string.IsNullOrWhiteSpace(source.Text) || string.IsNullOrWhiteSpace(evidence.Text) || confirmation.IsChecked != true) { await ShowMessage("Value, provenance, authorization note, and confirmation are required."); return; }
+        var normalized = value.Text.Trim().ToLowerInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^(?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+|[a-z0-9.-]+\.[a-z]{2,})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) { await ShowMessage("Enter one valid email address or domain."); return; }
+        if (_currentCase.ImportedIndicators.Any(item => item.Value.Equals(normalized, StringComparison.OrdinalIgnoreCase))) { await ShowMessage("That indicator is already attached to this case."); return; }
+        var item = new ProvenanceIndicator(Guid.NewGuid(), DateTimeOffset.Now, normalized, source.Text.Trim(), ScamAnalysisService.Redact(evidence.Text.Trim()));
+        _currentCase.ImportedIndicators.Add(item); _currentCase.UpdatedAt = item.AddedAt;
+        _currentCase.Timeline.Add(new CaseEvent(item.AddedAt, "Sourced indicator", $"Added {normalized} with recorded provenance; no contact initiated."));
         await _cases.SaveAsync(_currentCase); RefreshEngagementPlan();
     }
 

@@ -8,11 +8,12 @@ public sealed class SmtpEngagementService
 {
     public async Task<string> SendAsync(
         InboxSettings settings,
-        string password,
+        string credential,
         string recipient,
         string subject,
         string body,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool useOAuth = false)
     {
         if (string.IsNullOrWhiteSpace(settings.SmtpHost))
             throw new InvalidOperationException("Configure the SMTP server in Inbox settings first.");
@@ -27,7 +28,8 @@ public sealed class SmtpEngagementService
         using var client = new SmtpClient();
         var socket = settings.SmtpUseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
         await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort, socket, cancellationToken);
-        await client.AuthenticateAsync(settings.Username, password, cancellationToken);
+        if (useOAuth) await client.AuthenticateAsync(new SaslMechanismOAuth2(settings.Username, credential), cancellationToken);
+        else await client.AuthenticateAsync(settings.Username, credential, cancellationToken);
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(true, cancellationToken);
         return message.MessageId ?? string.Empty;

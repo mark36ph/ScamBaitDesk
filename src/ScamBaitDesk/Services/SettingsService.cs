@@ -38,6 +38,6 @@ public sealed class SettingsService
         await File.WriteAllTextAsync(_path, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         var vault = new PasswordVault();
         try { vault.Remove(vault.Retrieve(VaultResource, settings.Username)); } catch { }
-        vault.Add(new PasswordCredential(VaultResource, settings.Username, password));
+        if (!string.IsNullOrWhiteSpace(password)) vault.Add(new PasswordCredential(VaultResource, settings.Username, password));
     }
 }
