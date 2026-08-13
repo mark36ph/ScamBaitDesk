@@ -40,11 +40,12 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         SetWindowIcon();
+        Activated += (_, _) => SetWindowIcon();
         NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
         Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); };
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 900));
+        if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.Maximize();
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
         ShowIndicators([]);
@@ -204,7 +205,7 @@ public sealed partial class MainWindow : Window
         {
             XamlRoot = Content.XamlRoot,
             Title = "Update ScamBait Desk?",
-            Content = "The app will close. PowerShell will pull main, build the update, assign a newer package version, and register it. Keep the PowerShell window open until it reports success.",
+            Content = "The app will close. PowerShell will pull main, build and register the update, reopen ScamBait Desk, and then close automatically.",
             PrimaryButtonText = "Update and close app",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary
@@ -297,7 +298,17 @@ public sealed partial class MainWindow : Window
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
     }
 
-    private async void SaveCase_Click(object sender, RoutedEventArgs e)
+    private async void NewCase_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || _analysis is null) { await ShowMessage("Select an inbox message first, then choose New case."); return; }
+        _currentCase = null;
+        await SaveCaseAsync("New case created locally.");
+    }
+
+    private async void SaveCase_Click(object sender, RoutedEventArgs e) =>
+        await SaveCaseAsync("Case saved locally.");
+
+    private async Task SaveCaseAsync(string confirmation)
     {
         if (_selected is null || _analysis is null) { await ShowMessage("Select a message before saving a case."); return; }
         var now = DateTimeOffset.Now;
@@ -321,7 +332,7 @@ public sealed partial class MainWindow : Window
         await LoadCasesAsync();
         ShowStoppedState();
         TimelineList.ItemsSource = _currentCase.Timeline.OrderByDescending(item => item.At);
-        await ShowMessage("Case saved locally.");
+        await ShowMessage(confirmation);
     }
 
     private async void ExportEvidence_Click(object sender, RoutedEventArgs e)

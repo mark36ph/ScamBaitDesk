@@ -27,7 +27,7 @@ public sealed class AppUpdateService
             UseShellExecute = true,
             WorkingDirectory = Directory.GetParent(Directory.GetParent(scriptPath)!.FullName)!.FullName
         };
-        start.ArgumentList.Add("-NoExit");
+        start.ArgumentList.Add("-NoProfile");
         start.ArgumentList.Add("-ExecutionPolicy");
         start.ArgumentList.Add("Bypass");
         start.ArgumentList.Add("-File");
