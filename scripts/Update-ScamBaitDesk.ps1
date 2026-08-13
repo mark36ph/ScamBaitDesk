@@ -17,7 +17,10 @@ if (-not $manifest) { throw "The generated AppxManifest.xml was not found." }
 # Loose development packages require a monotonically increasing version.
 # Use local date/time components, each safely below the MSIX 65535 limit.
 $now = Get-Date
-$version = "1.{0}.{1}.{2}" -f $now.ToString("yyMM"), $now.ToString("ddHH"), $now.ToString("mmss")
+$monthVersion = [int]$now.ToString("yyMM")
+$dayHourVersion = [int]$now.ToString("ddHH")
+$minuteSecondVersion = [int]$now.ToString("mmss")
+$version = "1.$monthVersion.$dayHourVersion.$minuteSecondVersion"
 [xml]$xml = Get-Content -LiteralPath $manifest.FullName
 $xml.Package.Identity.Version = $version
 $xml.Save($manifest.FullName)
