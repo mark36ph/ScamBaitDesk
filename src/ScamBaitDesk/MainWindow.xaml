@@ -259,14 +259,46 @@
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
                 <TabViewItem x:Name="SettingsTab" Header="Settings" IsClosable="False">
-                    <ScrollViewer><StackPanel Padding="20" Spacing="16" MaxWidth="850" HorizontalAlignment="Left">
-                        <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontSize="28"/>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="Free local mode" Style="{ThemeResource SubtitleTextBlockStyle}"/><InfoBar IsOpen="True" IsClosable="False" Severity="Success" Title="No paid services required" Message="Email casework, analysis, playbooks, checklists, local templates, evidence exports, reminders, VPN checks, and call logging run without a subscription. PSTN calling and audio recording remain disabled unless a provider is added later."/></StackPanel></Border>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Mail account" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Configure only your dedicated bait mailbox. Credentials are stored in Windows Credential Locker." TextWrapping="Wrap" Opacity="0.7"/><StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Inbox settings" Click="Settings_Click"/><Button Content="Connect Gmail OAuth" Click="ConnectGmail_Click"/><Button Content="Test connection" Click="TestConnection_Click"/></StackPanel></StackPanel></Border>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Inbox monitoring" Style="{ThemeResource SubtitleTextBlockStyle}"/><InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Inbox monitor off" Message="Enable monitoring to check every 60 seconds while the app is open."/><AppBarToggleButton x:Name="SettingsMonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click" HorizontalAlignment="Left"/></StackPanel></Border>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="FastVPN" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Open the official FastVPN client and verify whether Windows reports an active VPN tunnel. FastVPN does not provide a documented third-party connect command, so location selection and Connect remain in its app." TextWrapping="Wrap" Opacity="0.7"/><InfoBar x:Name="VpnStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="VPN status not checked"/><StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Open FastVPN" Click="OpenFastVpn_Click"/><Button Content="Check VPN status" Click="CheckVpn_Click"/></StackPanel></StackPanel></Border>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><TextBlock Text="Application updates" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Check the published build number before closing the app. Available updates install with a visible progress window, then ScamBait Desk reopens automatically." TextWrapping="Wrap" Opacity="0.7"/><InfoBar x:Name="UpdateStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Not checked" Message="Check for updates to compare this installation with the latest published build number."/><StackPanel Orientation="Horizontal" Spacing="10"><Button x:Name="CheckUpdateButton" Content="Check for updates" Click="CheckUpdate_Click"/><Button x:Name="UpdateButton" Content="Update app now" Click="UpdateApp_Click" Style="{StaticResource AccentButtonStyle}"/></StackPanel></StackPanel></Border>
-                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel><TextBlock Text="Connection diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}"/><ListView x:Name="DiagnosticList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView></StackPanel></Border>
+                    <ScrollViewer><StackPanel Padding="24" Spacing="18" MaxWidth="1120" HorizontalAlignment="Stretch">
+                        <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3"><TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontSize="30"/><TextBlock Text="Mail, monitoring, integrations, and application maintenance" Opacity="0.65"/></StackPanel>
+                            <Border Grid.Column="1" Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}" CornerRadius="14" Padding="12,6" VerticalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE73E;" FontSize="13"/><TextBlock Text="FREE LOCAL MODE" FontSize="11" FontWeight="SemiBold"/></StackPanel></Border>
+                        </Grid>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Success" Title="Local features ready" Message="Core casework, analysis, templates, checklists, exports, reminders, VPN checks, and call logging require no paid service."/>
+                        <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="ACCOUNT &amp; INBOX" FontSize="11" FontWeight="SemiBold" Opacity="0.6" Margin="4,0,0,-6"/>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE715;"/><TextBlock Text="Dedicated mail account" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Credentials stay in Windows Credential Locker." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Configure inbox" Click="Settings_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Gmail OAuth" Click="ConnectGmail_Click"/><Button Content="Test" Click="TestConnection_Click"/></StackPanel>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE895;"/><TextBlock Text="Inbox monitoring" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Monitoring off" Message="Checks every 60 seconds while the app is open."/>
+                                    <AppBarToggleButton x:Name="SettingsMonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click" HorizontalAlignment="Left"/>
+                                </StackPanel></Border>
+                                <Expander Header="Connection diagnostics">
+                                    <Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><ListView x:Name="DiagnosticList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView></Border>
+                                </Expander>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="16">
+                                <TextBlock Text="INTEGRATIONS &amp; MAINTENANCE" FontSize="11" FontWeight="SemiBold" Opacity="0.6" Margin="4,0,0,-6"/>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE774;"/><TextBlock Text="FastVPN" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Open FastVPN, then confirm whether Windows detects an active tunnel." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <InfoBar x:Name="VpnStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Status not checked"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Open FastVPN" Click="OpenFastVpn_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Check status" Click="CheckVpn_Click"/></StackPanel>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE895;"/><TextBlock Text="Application updates" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Compare build numbers first; the app closes only when an update is available." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <InfoBar x:Name="UpdateStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Not checked" Message="Check to compare the installed and latest builds."/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="CheckUpdateButton" Content="Check for updates" Click="CheckUpdate_Click"/><Button x:Name="UpdateButton" Content="Update and restart" Click="UpdateApp_Click" Style="{StaticResource AccentButtonStyle}"/></StackPanel>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="6"><TextBlock Text="Calling and recording" FontWeight="SemiBold"/><TextBlock Text="PSTN calling and audio recording stay disabled unless a compatible provider is added later." TextWrapping="Wrap" Opacity="0.65"/></StackPanel></Border>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel></ScrollViewer>
                 </TabViewItem>
                 <TabViewItem x:Name="InsightTab" Header="Conversation insight" IsClosable="False">
