@@ -4,7 +4,9 @@ namespace ScamBaitDesk.Services;
 
 public sealed class AppUpdateService
 {
-    public sealed record UpdateCheckResult(bool IsAvailable, string CurrentCommit, string LatestCommit, string Message);
+    public const int CurrentBuild = 22;
+    private const string BuildNumberUrl = "https://raw.githubusercontent.com/mark36ph/ScamBaitDesk/main/build-number.txt";
+    public sealed record UpdateCheckResult(bool IsAvailable, int CurrentBuild, int LatestBuild, string Message);
 
     private string? FindRepository()
     {
@@ -14,36 +16,12 @@ public sealed class AppUpdateService
 
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
-        var repository = FindRepository() ?? throw new InvalidOperationException("The development repository could not be found.");
-        await RunGitAsync(repository, cancellationToken, "fetch", "--quiet", "origin", "main");
-        var current = await RunGitAsync(repository, cancellationToken, "rev-parse", "--short", "HEAD");
-        var latest = await RunGitAsync(repository, cancellationToken, "rev-parse", "--short", "origin/main");
-        var behindText = await RunGitAsync(repository, cancellationToken, "rev-list", "--count", "HEAD..origin/main");
-        var isAvailable = int.TryParse(behindText, out var behind) && behind > 0;
-        return new UpdateCheckResult(isAvailable, current, latest,
-            isAvailable ? $"A newer version is available ({behind} commit{(behind == 1 ? "" : "s")})." : "ScamBait Desk is up to date.");
-    }
-
-    private static async Task<string> RunGitAsync(string repository, CancellationToken cancellationToken, params string[] arguments)
-    {
-        var start = new ProcessStartInfo
-        {
-            FileName = "git.exe",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = repository
-        };
-        foreach (var argument in arguments) start.ArgumentList.Add(argument);
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Git could not be started.");
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        var output = (await outputTask).Trim();
-        var error = (await errorTask).Trim();
-        if (process.ExitCode != 0) throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? "The update check failed." : error);
-        return output;
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var text = (await client.GetStringAsync($"{BuildNumberUrl}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}", cancellationToken)).Trim();
+        if (!int.TryParse(text, out var latestBuild)) throw new InvalidOperationException("GitHub returned an invalid build number.");
+        var isAvailable = latestBuild > CurrentBuild;
+        return new UpdateCheckResult(isAvailable, CurrentBuild, latestBuild,
+            isAvailable ? "A newer build is available." : "ScamBait Desk is up to date.");
     }
 
     public string? FindUpdater()
@@ -68,14 +46,11 @@ public sealed class AppUpdateService
             FileName = "powershell.exe",
             UseShellExecute = false,
             CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = FindRepository() ?? Environment.CurrentDirectory
         };
         start.ArgumentList.Add("-NoProfile");
         start.ArgumentList.Add("-NonInteractive");
         start.ArgumentList.Add("-STA");
-        start.ArgumentList.Add("-WindowStyle");
-        start.ArgumentList.Add("Hidden");
         start.ArgumentList.Add("-ExecutionPolicy");
         start.ArgumentList.Add("Bypass");
         start.ArgumentList.Add("-File");

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using ScamBaitDesk.Services;
 using Windows.ApplicationModel.DataTransfer;
 using MimeKit;
+using System.Runtime.InteropServices;
 
 namespace ScamBaitDesk;
 
@@ -84,8 +85,26 @@ public sealed partial class MainWindow : Window
     private void SetWindowIcon()
     {
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ScamBaitDesk.ico");
-        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
+        if (!File.Exists(iconPath)) return;
+        AppWindow.SetIcon(iconPath);
+        var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var largeIcon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 32, 32, LoadFromFile);
+        var smallIcon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 16, 16, LoadFromFile);
+        if (largeIcon != IntPtr.Zero) SendMessage(windowHandle, SetIconMessage, new IntPtr(IconBig), largeIcon);
+        if (smallIcon != IntPtr.Zero) SendMessage(windowHandle, SetIconMessage, new IntPtr(IconSmall), smallIcon);
     }
+
+    private const uint SetIconMessage = 0x0080;
+    private const int IconSmall = 0;
+    private const int IconBig = 1;
+    private const uint ImageIcon = 1;
+    private const uint LoadFromFile = 0x0010;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint load);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr parameter, IntPtr value);
 
     private void SetCollectionTabs(string destination)
     {
@@ -230,7 +249,7 @@ public sealed partial class MainWindow : Window
         {
             var result = await _appUpdate.CheckAsync();
             UpdateStatusBar.Title = result.IsAvailable ? "Update available" : "Up to date";
-            UpdateStatusBar.Message = $"{result.Message} Installed {result.CurrentCommit}; latest {result.LatestCommit}. Checked {DateTimeOffset.Now:t}.";
+            UpdateStatusBar.Message = $"{result.Message} Installed build {result.CurrentBuild}; latest build {result.LatestBuild}. Checked {DateTimeOffset.Now:t}.";
             UpdateStatusBar.Severity = result.IsAvailable ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
             UpdateButton.IsEnabled = result.IsAvailable;
             return result;
