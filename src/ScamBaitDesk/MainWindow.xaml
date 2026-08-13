@@ -28,7 +28,7 @@
         </CommandBar>
 
         <Grid Grid.Row="1" ColumnSpacing="0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition x:Name="CollectionColumn" Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" Padding="10,16">
              <StackPanel Spacing="6"><TextBlock Text="Workspace" FontSize="12" FontWeight="SemiBold" Opacity="0.6" Margin="10,0,0,8"/><ListView x:Name="ShellMenu" SelectionChanged="ShellMenu_SelectionChanged" SelectedIndex="0">
               <ListViewItem Tag="Home"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE80F;"/><TextBlock Text="Home"/></StackPanel></ListViewItem>

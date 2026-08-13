@@ -39,6 +39,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SetWindowIcon();
         NavigateShell("Home");
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
@@ -72,9 +73,17 @@ public sealed partial class MainWindow : Window
     private void NavigateShell(string destination)
     {
         if (CollectionPane is null || WorkspaceTabs is null) return;
-        CollectionPane.Visibility = destination is "Home" or "Inbox" ? Visibility.Visible : Visibility.Collapsed;
+        var showCollection = destination is "Home" or "Inbox";
+        CollectionPane.Visibility = showCollection ? Visibility.Visible : Visibility.Collapsed;
+        CollectionColumn.Width = showCollection ? new GridLength(290) : new GridLength(0);
         SetCollectionTabs(destination);
         SetWorkspaceTabs(destination);
+    }
+
+    private void SetWindowIcon()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ScamBaitDesk.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
     }
 
     private void SetCollectionTabs(string destination)
