@@ -90,7 +90,6 @@ function Get-SignToolPath {
 
     foreach ($root in $sdkRoots) {
         if (Test-Path -LiteralPath $root) {
-            # Prefer x64/x86 SignTool binaries. Do not select an ARM64 binary on an x64 machine.
             $candidates += Get-ChildItem -LiteralPath $root -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue |
                 Where-Object { $_.FullName -match '\\(x64|x86)\\signtool\.exe$' } |
                 Sort-Object FullName -Descending |
@@ -136,14 +135,26 @@ function Get-OrCreateSigningCertificate {
         "[$(Get-Date -Format o)] Created local signing certificate: $($existing.Thumbprint)" | Add-Content -LiteralPath $logPath
     }
 
+    $publicCert = Join-Path $logDirectory "ScamBaitDesk-signing.cer"
+    Export-Certificate -Cert $existing -FilePath $publicCert -Force | Out-Null
+
     $trusted = Get-ChildItem Cert:\CurrentUser\TrustedPeople -ErrorAction SilentlyContinue |
         Where-Object Thumbprint -EQ $existing.Thumbprint |
         Select-Object -First 1
     if (-not $trusted) {
-        $publicCert = Join-Path $logDirectory "ScamBaitDesk-signing.cer"
-        Export-Certificate -Cert $existing -FilePath $publicCert -Force | Out-Null
         Import-Certificate -FilePath $publicCert -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
         "[$(Get-Date -Format o)] Trusted local signing certificate in CurrentUser\TrustedPeople." | Add-Content -LiteralPath $logPath
+    }
+
+    # A self-signed certificate is its own root. Windows AppX deployment validates
+    # the signature chain against a trusted root, so also place the certificate in
+    # the current user's Root store. This avoids 0x800B0109 on development machines.
+    $rootTrusted = Get-ChildItem Cert:\CurrentUser\Root -ErrorAction SilentlyContinue |
+        Where-Object Thumbprint -EQ $existing.Thumbprint |
+        Select-Object -First 1
+    if (-not $rootTrusted) {
+        Import-Certificate -FilePath $publicCert -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+        "[$(Get-Date -Format o)] Trusted local signing certificate in CurrentUser\Root." | Add-Content -LiteralPath $logPath
     }
 
     return $existing
