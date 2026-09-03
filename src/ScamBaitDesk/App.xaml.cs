@@ -14,17 +14,27 @@ public partial class App : Application
 
     public App()
     {
-        InitializeComponent();
-        UnhandledException += App_UnhandledException;
+        WriteStartupLog("App constructor entered.");
+        try
+        {
+            InitializeComponent();
+            WriteStartupLog("InitializeComponent completed.");
+            UnhandledException += App_UnhandledException;
+        }
+        catch (Exception exception)
+        {
+            WriteStartupLog("App constructor failed: " + exception);
+            throw;
+        }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        WriteStartupLog("OnLaunched entered.");
         try
         {
-            WriteStartupLog("Launch requested.");
             ConfigureTaskbarIdentity();
-            WriteStartupLog("Creating MainWindow.");
+            WriteStartupLog("Taskbar identity configured.");
             _window = new MainWindow();
             WriteStartupLog("MainWindow created; activating window.");
             _window.Activate();
