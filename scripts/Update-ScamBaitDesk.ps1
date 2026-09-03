@@ -116,13 +116,35 @@ Set-UpdateStage "Installing the update..." 80
 Add-AppxPackage -Register $manifest.FullName -ForceApplicationShutdown
 
 Set-UpdateStage "Reopening ScamBait Desk..." 95
-Start-Sleep -Seconds 1
-$installedApp = Get-StartApps | Where-Object Name -EQ "ScamBait Desk" | Select-Object -First 1
-if ($installedApp) {
-    Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($installedApp.AppID)"
-} else {
-    throw "The update succeeded, but ScamBait Desk could not be found in Start Apps. Open it from Start manually."
+Start-Sleep -Seconds 2
+
+# Get the installed package directly instead of relying on Get-StartApps, which can lag
+# behind a fresh loose-package registration.
+$installedPackage = Get-AppxPackage -Name "ScamBaitDesk" |
+    Sort-Object Version -Descending |
+    Select-Object -First 1
+if (-not $installedPackage) {
+    throw "The update was installed, but Windows did not report the ScamBait Desk package. Open it from Start manually."
 }
+
+$installedManifest = Get-AppxPackageManifest -Package $installedPackage.PackageFullName
+$application = $installedManifest.Package.Applications.Application |
+    Where-Object Id -EQ "ScamBaitDeskApp" |
+    Select-Object -First 1
+if (-not $application) {
+    throw "The update was installed, but the ScamBait Desk application entry could not be found in its package manifest."
+}
+
+$applicationUserModelId = "$($installedPackage.PackageFamilyName)!$($application.Id)"
+"[$(Get-Date -Format o)] Installed package: $($installedPackage.PackageFullName)`r`n[$(Get-Date -Format o)] Launching AUMID: $applicationUserModelId" | Add-Content -LiteralPath $logPath
+
+# Launch through the registered Windows AppsFolder identity. This works even when
+# Get-StartApps has not refreshed its cache yet.
+Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$applicationUserModelId"
+
+# Give Explorer a moment to hand activation to the packaged app before closing the updater.
+Start-Sleep -Seconds 2
+Set-UpdateStage "Update complete" 100
 }
 catch {
     "[$(Get-Date -Format o)] FAILED: $($_.Exception)" | Add-Content -LiteralPath $logPath
