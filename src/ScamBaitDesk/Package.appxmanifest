@@ -17,7 +17,7 @@
   <Applications>
     <Application Id="ScamBaitDeskApp" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="ScamBait Desk"
+        DisplayName="Scam Bait Desk"
         Description="Defensive scam-message review workspace"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
@@ -31,6 +31,6 @@
     <rescap:Capability Name="runFullTrust" />
     <Capability Name="internetClient" />
     <Capability Name="privateNetworkClientServer" />
-    <Capability Name="microphone" />
+    <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>
