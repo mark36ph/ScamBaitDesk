@@ -41,7 +41,9 @@ public partial class App : Application
             mainWindow.InitializePhoneWorkspace();
             WriteStartupLog("Phone workspace initialized; initializing channel chooser.");
             mainWindow.InitializeChannelChooser();
-            WriteStartupLog("Channel chooser initialized; activating window.");
+            WriteStartupLog("Channel chooser initialized; initializing update command bar.");
+            mainWindow.InitializeUpdateCommandBar();
+            WriteStartupLog("Update command bar initialized; activating window.");
             _window.Activate();
             WriteStartupLog("Window activated successfully.");
         }
