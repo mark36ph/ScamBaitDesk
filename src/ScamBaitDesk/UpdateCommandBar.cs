@@ -7,7 +7,7 @@ public sealed partial class MainWindow
 {
     private bool _updateCommandBarInitialized;
 
-    private void InitializeUpdateCommandBar()
+    internal void InitializeUpdateCommandBar()
     {
         if (_updateCommandBarInitialized) return;
         _updateCommandBarInitialized = true;
@@ -30,17 +30,4 @@ public sealed partial class MainWindow
     }
 
     private void UpdateCommandBar_Click(object sender, RoutedEventArgs e) => UpdateApp_Click(sender, e);
-
-    private void MainWindow_UpdateCommandBarLoaded(object sender, RoutedEventArgs e)
-    {
-        InitializeUpdateCommandBar();
-    }
-
-    private bool _updateCommandBarHooked = HookUpdateCommandBar();
-
-    private bool HookUpdateCommandBar()
-    {
-        Loaded += MainWindow_UpdateCommandBarLoaded;
-        return true;
-    }
 }
