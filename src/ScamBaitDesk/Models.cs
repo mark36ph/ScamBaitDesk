@@ -188,9 +188,38 @@ public sealed record ConnectionDiagnostic(string Component, bool Success, string
     public string Display => $"{(Success ? "PASS" : "FAIL")} · {Component} — {Detail}";
 }
 
-public sealed record CallLogRecord(Guid Id, DateTimeOffset At, string Number, string Outcome, string Notes, bool RecordingConsentConfirmed)
+public enum VoiceProfile { Neutral, Deeper, Higher, Robotic }
+
+public sealed record VoiceProtectionSettings(
+    string ProtectedNumber,
+    bool OwnershipConfirmed,
+    VoiceProfile Profile,
+    int Strength,
+    bool NoiseSuppressionEnabled,
+    bool IsEnabled,
+    string VirtualMicrophoneOutputId = "")
 {
-    public string Display => $"{At.LocalDateTime:g} · {Outcome} · {Number}{(RecordingConsentConfirmed ? " · recording consent confirmed" : string.Empty)}";
+    public static VoiceProtectionSettings Default { get; } = new("", false, VoiceProfile.Neutral, 50, true, false);
+    public string ProfileDisplay => $"{Profile} · {Strength}%{(NoiseSuppressionEnabled ? " · noise suppression" : "")}";
+}
+
+public sealed record VirtualMicrophoneOutput(string Id, string Name)
+{
+    public string Display => Name;
+}
+
+public sealed record CallLogRecord(
+    Guid Id,
+    DateTimeOffset At,
+    string Number,
+    string Outcome,
+    string Notes,
+    bool RecordingConsentConfirmed,
+    string ProtectedNumber = "",
+    VoiceProfile? VoiceProfile = null,
+    int VoiceProtectionStrength = 0)
+{
+    public string Display => $"{At.LocalDateTime:g} · {Outcome} · {Number}{(string.IsNullOrWhiteSpace(ProtectedNumber) ? "" : $" · protected number: {ProtectedNumber}")}{(VoiceProfile is null ? "" : $" · voice protection: {VoiceProfile} {VoiceProtectionStrength}%")}{(RecordingConsentConfirmed ? " · recording consent confirmed" : string.Empty)}";
 }
 
 public sealed record ForensicFinding(string Label, string Value, string Assessment)

@@ -45,7 +45,10 @@ ScamBait Desk is a defensive WinUI 3 workspace for reviewing a **dedicated test 
 - Provides controlled playbooks for identity verification, payment evidence, delaying safely, and preparing a report.
 - Generates a concise local case briefing with risk, stage, message counts, contradictions, overdue reminders, and the next suggested action.
 - Provides a provider-neutral call workspace that uses only phone numbers extracted from the active case and opens one number in the configured Windows VoIP handler.
-- Stores redacted call outcomes, notes, recording-consent confirmation, and timeline entries in the case and evidence export.
+- Provides local microphone-level testing, selectable Neutral/Deeper/Higher/Robotic voice-protection profiles, adjustable strength, practical noise suppression, an explicit active-status badge, and an emergency mute.
+- When a user-selected, pre-installed virtual-audio output is available, processes microphone audio in real time and writes it to that output; the user must select the virtual cable's matching recording endpoint as the microphone in their VoIP application.
+- Requires a confirmed secondary calling number the user legitimately controls and a selected virtual-audio output before voice protection can start; this local configuration is never used to alter caller ID or install drivers.
+- Stores redacted call outcomes, notes, recording-consent confirmation, protected number, voice-protection profile/strength, and timeline entries in the case and evidence export.
 - Does not provide caller-ID spoofing, autodialling, bulk calling, covert recording, or automatic calls.
 - Opens the official FastVPN Windows client and reports whether Windows exposes an active VPN/tunnel adapter; it does not automate or bypass FastVPN's own Connect control.
 - Saves reusable reply templates locally after applying the outbound privacy guard.
@@ -106,7 +109,7 @@ Open **Settings → Dedicated mail account → Set up Gmail OAuth step by step**
 
 ## Safety boundary
 
-Use only a dedicated bait account and messages you own or are authorized to handle. Use fictional persona details that do not resemble a real person. Do not send malware or tracking content, collect credentials, impersonate real people or authorities, threaten anyone, or attempt access to another system. Treat links and attachments as hostile. Outbound sending is deliberately manual, plain-text only, rate-limited, privacy-checked, confirmed twice, and logged.
+Use only a dedicated bait account, a secondary calling number you legitimately control, and messages you own or are authorized to handle. Use fictional persona details that do not resemble a real person. Do not send malware or tracking content, collect credentials, impersonate real people or authorities, threaten anyone, or attempt access to another system. Treat links and attachments as hostile. Outbound sending is deliberately manual, plain-text only, rate-limited, privacy-checked, confirmed twice, and logged. Voice protection requires a virtual audio driver already installed and configured by the user; ScamBait Desk detects eligible output endpoints but never installs or changes drivers. The user must choose the matching virtual recording endpoint in their VoIP application. ScamBait Desk does not change caller ID, dial automatically, bulk-call, or record.
 
 ## Build from the command line
 
