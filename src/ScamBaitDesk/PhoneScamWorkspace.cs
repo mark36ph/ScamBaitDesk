@@ -15,15 +15,7 @@ public sealed partial class MainWindow
     private TextBlock? _phoneGuidance;
     private StackPanel? _phoneFindingsPanel;
 
-    private bool RegisterPhoneWorkspaceHook()
-    {
-        Loaded += (_, _) => InitializePhoneWorkspace();
-        return true;
-    }
-
-    private readonly bool _phoneWorkspaceHook = false;
-
-    private void InitializePhoneWorkspace()
+    public void InitializePhoneWorkspace()
     {
         if (_phoneWorkspaceHooked) return;
         _phoneWorkspaceHooked = true;
