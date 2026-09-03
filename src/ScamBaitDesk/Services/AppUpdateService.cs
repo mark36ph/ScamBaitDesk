@@ -37,20 +37,25 @@ public sealed class AppUpdateService
         }
         if (!int.TryParse(text, out var latestBuild)) throw new InvalidOperationException("GitHub returned an invalid build number.");
         var isAvailable = latestBuild > CurrentBuild;
-        return new UpdateCheckResult(isAvailable, CurrentBuild, latestBuild,
+        return new UpdateCheckResult(latestBuild > CurrentBuild, CurrentBuild, latestBuild,
             isAvailable ? "A newer build is available." : "ScamBait Desk is up to date.");
     }
 
     public string? FindUpdater()
     {
         var starts = new[] { AppContext.BaseDirectory, Environment.CurrentDirectory };
+        var fileNames = new[] { "Bootstrap-ScamBaitDeskUpdate.ps1", "Update-ScamBaitDesk.ps1" };
+
         foreach (var start in starts)
         {
             var directory = new DirectoryInfo(start);
             for (var depth = 0; directory is not null && depth < 10; depth++, directory = directory.Parent)
             {
-                var candidate = Path.Combine(directory.FullName, "scripts", "Update-ScamBaitDesk.ps1");
-                if (File.Exists(candidate)) return candidate;
+                foreach (var fileName in fileNames)
+                {
+                    var candidate = Path.Combine(directory.FullName, "scripts", fileName);
+                    if (File.Exists(candidate)) return candidate;
+                }
             }
         }
         return null;
