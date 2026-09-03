@@ -78,6 +78,54 @@ function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [int]$max
     }
 }
 
+function Get-SignToolPath {
+    $candidates = @()
+    $command = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if ($command) { $candidates += $command.Source }
+    if (${env:ProgramFiles(x86)}) {
+        $candidates += Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin") -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+    }
+    if (${env:ProgramFiles}) {
+        $candidates += Get-ChildItem (Join-Path ${env:ProgramFiles} "Windows Kits\10\bin") -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+    }
+    $path = $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+    if (-not $path) {
+        throw "SignTool.exe was not found. Install the Windows 10/11 SDK, then run the updater again."
+    }
+    return $path
+}
+
+function Get-OrCreateSigningCertificate {
+    $publisher = "CN=ScamBaitDesk"
+    $existing = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert -ErrorAction SilentlyContinue |
+        Where-Object { $_.Subject -eq $publisher -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date).AddDays(30) } |
+        Sort-Object NotAfter -Descending |
+        Select-Object -First 1
+    if (-not $existing) {
+        $existing = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject $publisher `
+            -FriendlyName "ScamBaitDesk local MSIX signing" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -KeyAlgorithm RSA `
+            -KeyLength 2048 `
+            -HashAlgorithm SHA256
+        "[$(Get-Date -Format o)] Created local signing certificate: $($existing.Thumbprint)" | Add-Content -LiteralPath $logPath
+    }
+
+    $trusted = Get-ChildItem Cert:\CurrentUser\TrustedPeople -ErrorAction SilentlyContinue |
+        Where-Object Thumbprint -EQ $existing.Thumbprint |
+        Select-Object -First 1
+    if (-not $trusted) {
+        $publicCert = Join-Path $logDirectory "ScamBaitDesk-signing.cer"
+        Export-Certificate -Cert $existing -FilePath $publicCert -Force | Out-Null
+        Import-Certificate -FilePath $publicCert -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
+        "[$(Get-Date -Format o)] Trusted local signing certificate in CurrentUser\TrustedPeople." | Add-Content -LiteralPath $logPath
+    }
+
+    return $existing
+}
+
 $window.Show()
 $window.Activate()
 $window.BringToFront()
@@ -89,14 +137,11 @@ try {
     $repository = Split-Path -Parent $PSScriptRoot
     Set-Location $repository
 
-    # When launched from inside the app, give its process time to close and release build outputs.
     Start-Sleep -Seconds 2
 
     Set-UpdateStage "Downloading the latest version..." 15
     Invoke-UpdateProcess "git.exe" @("pull", "origin", "main") 30 "Downloading the update failed."
 
-    # Give every build a monotonically increasing MSIX version without committing a
-    # machine-specific version into source control. The source manifest is restored below.
     $now = Get-Date
     $monthVersion = [int]$now.ToString("yyMM")
     $dayHourVersion = [int]$now.ToString("ddHH")
@@ -121,11 +166,8 @@ try {
         "-p:SelfContained=true",
         "-p:PublishTrimmed=false",
         "-p:PublishReadyToRun=false"
-    ) 75 "The MSIX build failed; the installed app was not changed."
+    ) 70 "The MSIX build failed; the installed app was not changed."
 
-    # GenerateAppxPackageOnBuild places the real package under AppPackages.
-    # Search both the normal package folder and bin output so the updater is
-    # tolerant of SDK output-layout differences.
     $packageRoots = @(
         (Join-Path $repository "src\ScamBaitDesk\AppPackages"),
         (Join-Path $repository "src\ScamBaitDesk\bin\x64\Debug")
@@ -140,9 +182,15 @@ try {
         throw "The build completed but did not produce an MSIX package. Searched:`r`n$existingPackages`r`n`r`nCheck update.log for the publish output."
     }
 
-    "[$(Get-Date -Format o)] MSIX package: $($msix.FullName)" | Add-Content -LiteralPath $logPath
+    "[$(Get-Date -Format o)] MSIX package before signing: $($msix.FullName)" | Add-Content -LiteralPath $logPath
 
-    Set-UpdateStage "Installing the MSIX package..." 85
+    Set-UpdateStage "Signing the MSIX package..." 78
+    $signTool = Get-SignToolPath
+    $certificate = Get-OrCreateSigningCertificate
+    Invoke-UpdateProcess $signTool @("sign", "/fd", "SHA256", "/sha1", $certificate.Thumbprint, $msix.FullName) 82 "The MSIX was built but could not be signed."
+    "[$(Get-Date -Format o)] MSIX signed with certificate $($certificate.Thumbprint)." | Add-Content -LiteralPath $logPath
+
+    Set-UpdateStage "Installing the MSIX package..." 88
     Add-AppxPackage -Path $msix.FullName -ForceApplicationShutdown
 
     Set-UpdateStage "Reopening ScamBait Desk..." 95
