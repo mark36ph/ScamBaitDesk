@@ -31,6 +31,7 @@ public sealed partial class MainWindow : Window
     private readonly MailDiagnosticService _mailDiagnostic = new();
     private readonly AppUpdateService _appUpdate = new();
     private readonly VpnIntegrationService _vpn = new();
+    private readonly VoiceProtectionService _voiceProtection = new();
     private InboxMessage? _selected;
     private AnalysisResult? _analysis;
     private CaseRecord? _currentCase;
@@ -44,6 +45,9 @@ public sealed partial class MainWindow : Window
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _sessionTimer;
     private DateTimeOffset? _sessionStartedAt;
     private CaseRecord? _sessionCase;
+    private VoiceProtectionSettings _voiceSettings = VoiceProtectionSettings.Default;
+    private bool _microphoneTestActive;
+    private bool _voiceOutputActive;
 
     public MainWindow()
     {
@@ -54,7 +58,8 @@ public sealed partial class MainWindow : Window
         _monitorTimer = DispatcherQueue.CreateTimer(); _monitorTimer.Interval = TimeSpan.FromSeconds(60); _monitorTimer.Tick += MonitorTimer_Tick;
         _draftTimer = DispatcherQueue.CreateTimer(); _draftTimer.Interval = TimeSpan.FromSeconds(2); _draftTimer.IsRepeating = false; _draftTimer.Tick += DraftTimer_Tick;
         _sessionTimer = DispatcherQueue.CreateTimer(); _sessionTimer.Interval = TimeSpan.FromSeconds(1); _sessionTimer.Tick += SessionTimer_Tick;
-        Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); _sessionTimer.Stop(); };
+        Closed += (_, _) => { _monitorTimer.Stop(); _draftTimer.Stop(); _sessionTimer.Stop(); _voiceProtection.Dispose(); };
+        _voiceProtection.LevelChanged += VoiceProtection_LevelChanged;
         if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.Maximize();
         StatusBox.SelectedIndex = 0;
         ShowForensics(_selected);
@@ -69,8 +74,125 @@ public sealed partial class MainWindow : Window
         _ = LoadPersonasAsync();
         _ = LoadTemplatesAsync();
         _ = LoadSafetyStateAsync();
+        _ = LoadVoiceProtectionSettingsAsync();
         _ = LoadCasesAsync();
     }
+
+    private async Task LoadVoiceProtectionSettingsAsync()
+    {
+        _voiceSettings = await _voiceProtection.LoadAsync();
+        ProtectedNumberBox.Text = _voiceSettings.ProtectedNumber;
+        ProtectedNumberOwnershipCheck.IsChecked = _voiceSettings.OwnershipConfirmed;
+        VoiceProfileBox.SelectedIndex = (int)_voiceSettings.Profile;
+        VoiceStrengthSlider.Value = _voiceSettings.Strength;
+        NoiseSuppressionToggle.IsOn = _voiceSettings.NoiseSuppressionEnabled;
+        VoiceProtectionToggle.IsOn = _voiceSettings.IsEnabled;
+        RefreshVirtualOutputs();
+        RefreshVoiceProtectionStatus();
+    }
+
+    private void RefreshVoiceProtectionStatus()
+    {
+        var ready = _voiceSettings.IsEnabled && _voiceSettings.OwnershipConfirmed && !string.IsNullOrWhiteSpace(_voiceSettings.ProtectedNumber) && !string.IsNullOrWhiteSpace(_voiceSettings.VirtualMicrophoneOutputId);
+        VoiceProtectionStatusText.Text = _voiceOutputActive ? $"PROTECTION ACTIVE · {_voiceSettings.Profile}" : ready ? "PROTECTION READY" : "PROTECTION OFF";
+        VoiceProtectionStatusBadge.Background = _voiceOutputActive
+            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBackgroundBrush"]
+            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBackgroundBrush"];
+    }
+
+    private VoiceProtectionSettings ReadVoiceProtectionSettings() => new(
+        ProtectedNumberBox.Text?.Trim() ?? string.Empty,
+        ProtectedNumberOwnershipCheck.IsChecked == true,
+        Enum.TryParse<VoiceProfile>(VoiceProfileBox.SelectedItem?.ToString(), out var profile) ? profile : VoiceProfile.Neutral,
+        (int)Math.Round(VoiceStrengthSlider.Value),
+        NoiseSuppressionToggle.IsOn,
+        VoiceProtectionToggle.IsOn,
+        (VirtualMicrophoneOutputBox.SelectedItem as VirtualMicrophoneOutput)?.Id ?? _voiceSettings.VirtualMicrophoneOutputId);
+
+    private void RefreshVirtualOutputs()
+    {
+        var outputs = _voiceProtection.FindVirtualMicrophoneOutputs();
+        VirtualMicrophoneOutputBox.ItemsSource = outputs;
+        VirtualMicrophoneOutputBox.SelectedItem = outputs.FirstOrDefault(output => output.Id == _voiceSettings.VirtualMicrophoneOutputId);
+        VirtualMicrophoneOutputStatus.Text = outputs.Count == 0
+            ? "No compatible virtual-audio output was detected. Install/configure one yourself; ScamBait Desk does not install drivers."
+            : "Choose an output, then select the matching virtual cable recording endpoint as the microphone in your VoIP app.";
+    }
+
+    private void RefreshVirtualOutputs_Click(object sender, RoutedEventArgs e) => RefreshVirtualOutputs();
+
+    private static bool IsControlledPhoneNumber(string value)
+    {
+        var normalized = new string(value.Where(character => char.IsDigit(character) || character == '+').ToArray());
+        return normalized.Count(char.IsDigit) is >= 7 and <= 15 && normalized.Count(character => character == '+') <= 1 && (normalized.Length == 0 || normalized[0] != '+' || normalized.IndexOf('+', 1) < 0);
+    }
+
+    private async void SaveVoiceProtectionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = ReadVoiceProtectionSettings();
+        if (!IsControlledPhoneNumber(settings.ProtectedNumber) || !settings.OwnershipConfirmed)
+        {
+            await ShowMessage("Enter a valid secondary phone number and confirm that you legitimately control it. This feature cannot be used for caller-ID spoofing or impersonation.");
+            return;
+        }
+        _voiceSettings = settings;
+        await _voiceProtection.SaveAsync(settings);
+        RefreshVoiceProtectionStatus();
+        await ShowMessage("Protected-number configuration saved locally.");
+    }
+
+    private void VoiceProtectionChanged(object sender, RoutedEventArgs e)
+    {
+        _voiceSettings = ReadVoiceProtectionSettings();
+        RefreshVoiceProtectionStatus();
+    }
+
+    private void VoiceStrengthSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        _voiceSettings = ReadVoiceProtectionSettings();
+        RefreshVoiceProtectionStatus();
+    }
+
+    private void MicrophoneTest_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_microphoneTestActive)
+            {
+                _voiceProtection.StopAudio();
+                _microphoneTestActive = false;
+                MicrophoneTestButton.Content = "Test microphone";
+                MicrophoneTestStatus.Text = "Microphone test is off. No audio is recorded or sent.";
+            }
+            else
+            {
+                _voiceSettings = ReadVoiceProtectionSettings();
+                _voiceProtection.StartMicrophoneTest(_voiceSettings);
+                _microphoneTestActive = true;
+                MicrophoneTestButton.Content = "Stop test";
+                MicrophoneTestStatus.Text = $"Testing the local {_voiceSettings.Profile} profile at {_voiceSettings.Strength}%. Audio is processed in memory only and is not recorded or sent.";
+            }
+        }
+        catch (Exception exception)
+        {
+            MicrophoneTestStatus.Text = $"Could not start microphone test: {exception.Message}";
+        }
+    }
+
+    private async void EmergencyMute_Click(object sender, RoutedEventArgs e)
+    {
+        _voiceProtection.StopAudio();
+        _microphoneTestActive = false;
+        _voiceOutputActive = false;
+        MicrophoneTestButton.Content = "Test microphone";
+        VoiceProtectionToggle.IsOn = false;
+        _voiceSettings = ReadVoiceProtectionSettings();
+        await _voiceProtection.SaveAsync(_voiceSettings);
+        RefreshVoiceProtectionStatus();
+        MicrophoneTestStatus.Text = "Emergency mute engaged: ScamBait Desk microphone test and voice-protection session are off. Mute the VoIP app separately if it is in a call.";
+    }
+
+    private void VoiceProtection_LevelChanged(object? sender, float level) => DispatcherQueue.TryEnqueue(() => MicrophoneLevelBar.Value = Math.Min(100, level * 100));
 
     private async Task LoadSafetyStateAsync()
     {
@@ -1232,14 +1354,47 @@ public sealed partial class MainWindow : Window
     private async void OpenVoip_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCase is null || CallNumberBox.SelectedItem is not string number) { await ShowMessage("Open a case containing an extracted phone number first."); return; }
-        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Open dedicated VoIP app?", Content = $"Open this case-sourced number in your default Windows calling app?\n\n{number}\n\nUse only a dedicated bait number. This does not start recording.", PrimaryButtonText = "Open calling app", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        _voiceSettings = ReadVoiceProtectionSettings();
+        if (_voiceSettings.IsEnabled && (!IsControlledPhoneNumber(_voiceSettings.ProtectedNumber) || !_voiceSettings.OwnershipConfirmed || string.IsNullOrWhiteSpace(_voiceSettings.VirtualMicrophoneOutputId)))
+        {
+            await ShowMessage("Voice protection is enabled, but it needs a confirmed controlled number and selected virtual-audio output. Configure both in Settings before opening the VoIP app.");
+            return;
+        }
+        var protectionDetail = _voiceSettings.IsEnabled
+            ? $"\n\nVoice protection will start: {_voiceSettings.ProfileDisplay}. Protected number: {_voiceSettings.ProtectedNumber}. Confirm your VoIP app is using the matching virtual recording endpoint as its microphone."
+            : "";
+        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "Open dedicated VoIP app?", Content = $"Open this case-sourced number in your default Windows calling app?\n\n{number}\n\nUse only a dedicated bait number. This does not start recording.{protectionDetail}", PrimaryButtonText = "Open calling app", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (_voiceSettings.IsEnabled)
+        {
+            try
+            {
+                await _voiceProtection.StartVirtualMicrophoneAsync(_voiceSettings);
+                _voiceOutputActive = _voiceProtection.IsRoutingAudio;
+                RefreshVoiceProtectionStatus();
+                await _voiceProtection.SaveAsync(_voiceSettings);
+            }
+            catch (Exception exception)
+            {
+                _voiceOutputActive = false;
+                RefreshVoiceProtectionStatus();
+                await ShowMessage($"Voice protection could not start on the selected virtual output: {exception.Message}");
+                return;
+            }
+        }
         var dialNumber = new string(number.Where(character => char.IsDigit(character) || character == '+').ToArray());
-        if (!await Windows.System.Launcher.LaunchUriAsync(new Uri($"tel:{dialNumber}"))) { await ShowMessage("Windows has no default app registered for telephone links."); return; }
+        if (!await Windows.System.Launcher.LaunchUriAsync(new Uri($"tel:{dialNumber}")))
+        {
+            _voiceProtection.StopAudio();
+            _voiceOutputActive = false;
+            RefreshVoiceProtectionStatus();
+            await ShowMessage("Windows has no default app registered for telephone links.");
+            return;
+        }
         var now = DateTimeOffset.Now;
-        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, "VoIP app opened", "Manual call launch requested; connection not verified.", false));
+        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, "VoIP app opened", "Manual call launch requested; connection not verified.", false, _voiceSettings.IsEnabled ? _voiceSettings.ProtectedNumber : "", _voiceSettings.IsEnabled ? _voiceSettings.Profile : null, _voiceSettings.IsEnabled ? _voiceSettings.Strength : 0));
         _currentCase.UpdatedAt = now;
-        _currentCase.Timeline.Add(new CaseEvent(now, "VoIP call", "Opened one case-sourced number in the default calling app; recording was not started."));
+        _currentCase.Timeline.Add(new CaseEvent(now, "VoIP call", $"Opened one case-sourced number in the default calling app; recording was not started.{(_voiceSettings.IsEnabled ? $" Voice protection logged as {_voiceSettings.Profile} at {_voiceSettings.Strength}% using the configured controlled number." : "")}"));
         await _cases.SaveAsync(_currentCase); RefreshCallWorkspace();
     }
 
@@ -1249,7 +1404,8 @@ public sealed partial class MainWindow : Window
         var now = DateTimeOffset.Now;
         var outcome = CallOutcomeBox.SelectedItem?.ToString() ?? "Other";
         var notes = ScamAnalysisService.Redact(CallNotesBox.Text ?? string.Empty);
-        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, outcome, notes, RecordingConsentBox.IsChecked == true));
+        _voiceSettings = ReadVoiceProtectionSettings();
+        _currentCase.Calls.Add(new CallLogRecord(Guid.NewGuid(), now, number, outcome, notes, RecordingConsentBox.IsChecked == true, _voiceSettings.IsEnabled ? _voiceSettings.ProtectedNumber : "", _voiceSettings.IsEnabled ? _voiceSettings.Profile : null, _voiceSettings.IsEnabled ? _voiceSettings.Strength : 0));
         _currentCase.UpdatedAt = now;
         _currentCase.Timeline.Add(new CaseEvent(now, "Call outcome", $"{outcome}; notes stored redacted; recording consent confirmed: {RecordingConsentBox.IsChecked == true}."));
         await _cases.SaveAsync(_currentCase); CallNotesBox.Text = string.Empty; RefreshCallWorkspace(); await LoadCasesAsync();

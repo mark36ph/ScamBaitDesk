@@ -18,6 +18,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
     <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\ScamBaitDesk-v2.ico" CopyToOutputDirectory="PreserveNewest" />
