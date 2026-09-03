@@ -125,36 +125,44 @@ function Get-OrCreateSigningCertificate {
         Select-Object -First 1
     if (-not $existing) {
         $existing = New-SelfSignedCertificate `
-            -Type CodeSigningCert `
+            -Type Custom `
+            -KeyUsage DigitalSignature `
             -Subject $publisher `
-            -FriendlyName "ScamBaitDesk local MSIX signing" `
             -CertStoreLocation "Cert:\CurrentUser\My" `
-            -KeyAlgorithm RSA `
-            -KeyLength 2048 `
-            -HashAlgorithm SHA256
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") `
+            -FriendlyName "ScamBaitDesk local MSIX signing"
         "[$(Get-Date -Format o)] Created local signing certificate: $($existing.Thumbprint)" | Add-Content -LiteralPath $logPath
     }
 
     $publicCert = Join-Path $logDirectory "ScamBaitDesk-signing.cer"
     Export-Certificate -Cert $existing -FilePath $publicCert -Force | Out-Null
 
-    $trusted = Get-ChildItem Cert:\CurrentUser\TrustedPeople -ErrorAction SilentlyContinue |
+    # Windows MSIX deployment validates self-signed package certificates against
+    # the machine Trusted People store. Import the public certificate there with
+    # elevation so Add-AppxPackage can trust the package.
+    $machineTrusted = Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue |
         Where-Object Thumbprint -EQ $existing.Thumbprint |
         Select-Object -First 1
-    if (-not $trusted) {
-        Import-Certificate -FilePath $publicCert -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
-        "[$(Get-Date -Format o)] Trusted local signing certificate in CurrentUser\TrustedPeople." | Add-Content -LiteralPath $logPath
-    }
-
-    # A self-signed certificate is its own root. Windows AppX deployment validates
-    # the signature chain against a trusted root, so also place the certificate in
-    # the current user's Root store. This avoids 0x800B0109 on development machines.
-    $rootTrusted = Get-ChildItem Cert:\CurrentUser\Root -ErrorAction SilentlyContinue |
-        Where-Object Thumbprint -EQ $existing.Thumbprint |
-        Select-Object -First 1
-    if (-not $rootTrusted) {
-        Import-Certificate -FilePath $publicCert -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-        "[$(Get-Date -Format o)] Trusted local signing certificate in CurrentUser\Root." | Add-Content -LiteralPath $logPath
+    if (-not $machineTrusted) {
+        Set-UpdateStage "Trusting the local signing certificate..." 84
+        "[$(Get-Date -Format o)] Requesting administrator approval to trust certificate in LocalMachine\TrustedPeople." | Add-Content -LiteralPath $logPath
+        $escapedCert = $publicCert.Replace("'", "''")
+        $arguments = @(
+            '-NoProfile',
+            '-Command',
+            "Import-Certificate -FilePath '$escapedCert' -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null"
+        )
+        $elevated = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $arguments -Wait -PassThru
+        if ($elevated.ExitCode -ne 0) {
+            throw "Windows administrator approval was required to trust the MSIX signing certificate."
+        }
+        $machineTrusted = Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue |
+            Where-Object Thumbprint -EQ $existing.Thumbprint |
+            Select-Object -First 1
+        if (-not $machineTrusted) {
+            throw "The signing certificate could not be found in LocalMachine\TrustedPeople after elevation."
+        }
+        "[$(Get-Date -Format o)] Signing certificate trusted in LocalMachine\TrustedPeople." | Add-Content -LiteralPath $logPath
     }
 
     return $existing
@@ -221,10 +229,10 @@ try {
     Set-UpdateStage "Signing the MSIX package..." 78
     $signTool = Get-SignToolPath
     $certificate = Get-OrCreateSigningCertificate
-    Invoke-UpdateProcess $signTool @("sign", "/fd", "SHA256", "/sha1", $certificate.Thumbprint, $msix.FullName) 82 "The MSIX was built but could not be signed."
+    Invoke-UpdateProcess $signTool @("sign", "/fd", "SHA256", "/sha1", $certificate.Thumbprint, $msix.FullName) 86 "The MSIX was built but could not be signed."
     "[$(Get-Date -Format o)] MSIX signed with certificate $($certificate.Thumbprint)." | Add-Content -LiteralPath $logPath
 
-    Set-UpdateStage "Installing the MSIX package..." 88
+    Set-UpdateStage "Installing the MSIX package..." 90
     Add-AppxPackage -Path $msix.FullName -ForceApplicationShutdown
 
     Set-UpdateStage "Reopening ScamBait Desk..." 95
