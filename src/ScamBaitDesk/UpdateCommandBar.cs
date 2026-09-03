@@ -29,5 +29,60 @@ public sealed partial class MainWindow
         commandBar.PrimaryCommands.Insert(0, updateButton);
     }
 
-    private void UpdateCommandBar_Click(object sender, RoutedEventArgs e) => UpdateApp_Click(sender, e);
+    private async void UpdateCommandBar_Click(object sender, RoutedEventArgs e)
+    {
+        var button = sender as AppBarButton;
+        if (button is not null)
+            button.IsEnabled = false;
+
+        try
+        {
+            var updater = _appUpdate.FindUpdater();
+            if (updater is null)
+            {
+                var bootstrap = Path.Combine(AppContext.BaseDirectory, "scripts", "Bootstrap-ScamBaitDeskUpdate.ps1");
+                if (File.Exists(bootstrap))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powershell.exe",
+                        UseShellExecute = true,
+                        Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{bootstrap}\""
+                    });
+                    return;
+                }
+
+                await ShowMessage("The updater could not be found in this installation. Please install the latest ScamBait Desk build once from the development repository.");
+                return;
+            }
+
+            var check = await CheckForUpdatesAsync();
+            if (check is null || !check.IsAvailable)
+            {
+                await ShowMessage("ScamBait Desk is already up to date.");
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = "Update available",
+                Content = $"Version {check.Version} is ready to install. ScamBait Desk will close and restart after the update.",
+                PrimaryButtonText = "Update now",
+                CloseButtonText = "Later",
+                XamlRoot = Content.XamlRoot
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                await _appUpdate.InstallUpdateAsync(check);
+        }
+        catch (Exception exception)
+        {
+            await ShowMessage("The update could not be started. " + exception.Message);
+        }
+        finally
+        {
+            if (button is not null)
+                button.IsEnabled = true;
+        }
+    }
 }
