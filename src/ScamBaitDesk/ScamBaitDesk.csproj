@@ -30,5 +30,6 @@
     <Content Include="Assets\ScamBaitDesk-v2.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets\AppLogoV2*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\scripts\Update-ScamBaitDesk.ps1" Link="scripts\Update-ScamBaitDesk.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\scripts\Bootstrap-ScamBaitDeskUpdate.ps1" Link="scripts\Bootstrap-ScamBaitDeskUpdate.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
