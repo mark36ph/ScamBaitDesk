@@ -22,9 +22,9 @@ public sealed partial class MainWindow
         var updateButton = new AppBarButton
         {
             Icon = new SymbolIcon(Symbol.Sync),
-            Label = "Update",
-            ToolTipService = { ToolTip = "Check for and install the latest ScamBait Desk build" }
+            Label = "Update"
         };
+        ToolTipService.SetToolTip(updateButton, "Check for and install the latest ScamBait Desk build");
         updateButton.Click += UpdateCommandBar_Click;
         commandBar.PrimaryCommands.Insert(0, updateButton);
     }
