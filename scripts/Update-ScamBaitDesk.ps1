@@ -123,13 +123,21 @@ try {
         "-p:PublishReadyToRun=false"
     ) 75 "The MSIX build failed; the installed app was not changed."
 
-    # A real MSIX should now exist under AppPackages. Do not fall back to loose
-    # manifest registration because that was the packaging path involved in the crash.
-    $msix = Get-ChildItem ".\src\ScamBaitDesk\bin\x64\Debug" -Recurse -Filter *.msix |
+    # GenerateAppxPackageOnBuild places the real package under AppPackages.
+    # Search both the normal package folder and bin output so the updater is
+    # tolerant of SDK output-layout differences.
+    $packageRoots = @(
+        (Join-Path $repository "src\ScamBaitDesk\AppPackages"),
+        (Join-Path $repository "src\ScamBaitDesk\bin\x64\Debug")
+    ) | Where-Object { Test-Path -LiteralPath $_ }
+
+    $msix = Get-ChildItem -Path $packageRoots -Recurse -Filter *.msix -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
+
     if (-not $msix) {
-        throw "The build completed but did not produce an MSIX package. Check update.log for the publish output."
+        $existingPackages = ($packageRoots | ForEach-Object { "- $_" }) -join [Environment]::NewLine
+        throw "The build completed but did not produce an MSIX package. Searched:`r`n$existingPackages`r`n`r`nCheck update.log for the publish output."
     }
 
     "[$(Get-Date -Format o)] MSIX package: $($msix.FullName)" | Add-Content -LiteralPath $logPath
