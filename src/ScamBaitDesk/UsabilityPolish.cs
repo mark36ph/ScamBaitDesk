@@ -36,15 +36,30 @@ public sealed partial class MainWindow
     {
         foreach (var command in FindCommandBarButtons())
         {
-            switch (command.Label?.ToString())
+            var label = command switch
             {
-                case "Sync inbox": command.Label = "Sync"; break;
-                case "Monitor inbox": command.Label = "Monitor"; break;
-                case "Create case": command.Label = "New case"; break;
-                case "Save changes": command.Label = "Save"; break;
-                case "Export evidence": command.Label = "Export"; break;
-                case "Check website": command.Label = "Website"; break;
-                case "GLOBAL SEND STOP": command.Label = "STOP"; break;
+                AppBarButton button => button.Label?.ToString(),
+                AppBarToggleButton toggle => toggle.Label?.ToString(),
+                _ => null
+            };
+
+            var simplified = label switch
+            {
+                "Sync inbox" => "Sync",
+                "Monitor inbox" => "Monitor",
+                "Create case" => "New case",
+                "Save changes" => "Save",
+                "Export evidence" => "Export",
+                "Check website" => "Website",
+                "GLOBAL SEND STOP" => "STOP",
+                _ => null
+            };
+
+            if (simplified is null) continue;
+            switch (command)
+            {
+                case AppBarButton button: button.Label = simplified; break;
+                case AppBarToggleButton toggle: toggle.Label = simplified; break;
             }
         }
     }
@@ -94,13 +109,15 @@ public sealed partial class MainWindow
         WorkspaceTabs.SelectedItem = GuideTab;
     }
 
-    private IEnumerable<AppBarButtonBase> FindCommandBarButtons()
+    private IEnumerable<Control> FindCommandBarButtons()
     {
         if (Content is not Grid root) yield break;
         foreach (var commandBar in root.Children.OfType<CommandBar>())
         {
-            foreach (var button in commandBar.PrimaryCommands.OfType<AppBarButtonBase>()) yield return button;
-            foreach (var button in commandBar.SecondaryCommands.OfType<AppBarButtonBase>()) yield return button;
+            foreach (var button in commandBar.PrimaryCommands.OfType<AppBarButton>()) yield return button;
+            foreach (var toggle in commandBar.PrimaryCommands.OfType<AppBarToggleButton>()) yield return toggle;
+            foreach (var button in commandBar.SecondaryCommands.OfType<AppBarButton>()) yield return button;
+            foreach (var toggle in commandBar.SecondaryCommands.OfType<AppBarToggleButton>()) yield return toggle;
         }
     }
 
