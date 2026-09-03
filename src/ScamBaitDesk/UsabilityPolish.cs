@@ -19,6 +19,21 @@ public sealed partial class MainWindow
     {
         Loaded -= UsabilityPolish_Loaded;
 
+        SimplifyTopBar();
+        SimplifyNavigation();
+        SimplifyCollectionTabs();
+        SimplifyWorkspaceTabs();
+
+        SearchBox.PlaceholderText = "Search messages or cases…";
+        SearchBox.Header = "Find a message or case";
+
+        AddNavigationToolTips();
+        AddWorkspaceToolTips();
+        AddHomeQuickStart();
+    }
+
+    private void SimplifyTopBar()
+    {
         foreach (var command in FindCommandBarButtons())
         {
             switch (command.Label?.ToString())
@@ -32,12 +47,51 @@ public sealed partial class MainWindow
                 case "GLOBAL SEND STOP": command.Label = "STOP"; break;
             }
         }
+    }
 
-        SearchBox.PlaceholderText = "Search messages or cases…";
-        SearchBox.Header = "Find a message or case";
-        AddNavigationToolTips();
-        AddWorkspaceToolTips();
-        AddHomeQuickStart();
+    private void SimplifyNavigation()
+    {
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Home"] = "Start",
+            ["Inbox"] = "Messages & cases",
+            ["Case"] = "Review",
+            ["Investigate"] = "Investigate",
+            ["Engage"] = "Respond safely",
+            ["Report"] = "Finish & report",
+            ["Website"] = "Website check"
+        };
+
+        foreach (var item in ShellMenu.Items.OfType<ListViewItem>())
+        {
+            if (item.Tag is not string tag || !labels.TryGetValue(tag, out var label))
+                continue;
+
+            if (item.Content is StackPanel panel)
+            {
+                var text = panel.Children.OfType<TextBlock>().FirstOrDefault();
+                if (text is not null)
+                    text.Text = label;
+            }
+        }
+    }
+
+    private void SimplifyCollectionTabs()
+    {
+        InboxCollectionTab.Header = "Messages";
+        CasesCollectionTab.Header = "Cases";
+        DashboardCollectionTab.Header = "Overview";
+        ActionsCollectionTab.Header = "Next steps";
+    }
+
+    private void SimplifyWorkspaceTabs()
+    {
+        GuideTab.Header = "Start";
+        ReviewTab.Header = "Review";
+        ReplyTab.Header = "Respond";
+        CallsTab.Header = "Phone";
+        NotesTab.Header = "Case notes";
+        WorkspaceTabs.SelectedItem = GuideTab;
     }
 
     private IEnumerable<AppBarButtonBase> FindCommandBarButtons()
@@ -54,9 +108,9 @@ public sealed partial class MainWindow
     {
         var tips = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Home"] = "Start here: choose what you want to investigate.",
-            ["Inbox"] = "Open messages and saved cases.",
-            ["Case"] = "Review the selected scam case.",
+            ["Home"] = "Start here: choose Email, Phone or Website.",
+            ["Inbox"] = "Find suspicious messages and saved cases.",
+            ["Case"] = "Review the selected case and its risk signals.",
             ["Investigate"] = "Check websites, headers, indicators and evidence.",
             ["Engage"] = "Plan and write a safe manual response.",
             ["Report"] = "Finish the case and export evidence.",
