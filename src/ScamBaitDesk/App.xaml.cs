@@ -35,8 +35,11 @@ public partial class App : Application
         {
             ConfigureTaskbarIdentity();
             WriteStartupLog("Taskbar identity configured.");
-            _window = new MainWindow();
-            WriteStartupLog("MainWindow created; activating window.");
+            var mainWindow = new MainWindow();
+            _window = mainWindow;
+            WriteStartupLog("MainWindow created; initializing phone workspace.");
+            mainWindow.InitializePhoneWorkspace();
+            WriteStartupLog("Phone workspace initialized; activating window.");
             _window.Activate();
             WriteStartupLog("Window activated successfully.");
         }
