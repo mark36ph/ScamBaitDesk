@@ -31,8 +31,7 @@ public sealed partial class MainWindow
 
     private async void UpdateCommandBar_Click(object sender, RoutedEventArgs e)
     {
-        var button = sender as AppBarButton;
-        if (button is not null)
+        if (sender is AppBarButton button)
             button.IsEnabled = false;
 
         try
@@ -40,40 +39,33 @@ public sealed partial class MainWindow
             var updater = _appUpdate.FindUpdater();
             if (updater is null)
             {
-                var bootstrap = Path.Combine(AppContext.BaseDirectory, "scripts", "Bootstrap-ScamBaitDeskUpdate.ps1");
-                if (File.Exists(bootstrap))
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "powershell.exe",
-                        UseShellExecute = true,
-                        Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{bootstrap}\""
-                    });
-                    return;
-                }
-
-                await ShowMessage("The updater could not be found in this installation. Please install the latest ScamBait Desk build once from the development repository.");
+                await ShowMessage("The updater is not available in this installation. Please run the updater once from the ScamBait Desk development folder.");
                 return;
             }
 
-            var check = await CheckForUpdatesAsync();
-            if (check is null || !check.IsAvailable)
+            var check = await _appUpdate.CheckAsync();
+            if (!check.IsAvailable)
             {
-                await ShowMessage("ScamBait Desk is already up to date.");
+                await ShowMessage(check.Message);
                 return;
             }
 
             var dialog = new ContentDialog
             {
                 Title = "Update available",
-                Content = $"Version {check.Version} is ready to install. ScamBait Desk will close and restart after the update.",
+                Content = $"Build {check.LatestBuild} is available (current build {check.CurrentBuild}). ScamBait Desk will close and restart during the update.",
                 PrimaryButtonText = "Update now",
                 CloseButtonText = "Later",
+                DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                await _appUpdate.InstallUpdateAsync(check);
+            {
+                _appUpdate.Launch(updater);
+                await ShowMessage("The updater has been started. ScamBait Desk will close when the new build is ready.");
+                Close();
+            }
         }
         catch (Exception exception)
         {
@@ -81,8 +73,8 @@ public sealed partial class MainWindow
         }
         finally
         {
-            if (button is not null)
-                button.IsEnabled = true;
+            if (sender is AppBarButton updateButton)
+                updateButton.IsEnabled = true;
         }
     }
 }
