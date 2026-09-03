@@ -32,4 +32,7 @@
     <Content Include="..\..\scripts\Update-ScamBaitDesk.ps1" Link="scripts\Update-ScamBaitDesk.ps1" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\scripts\Bootstrap-ScamBaitDeskUpdate.ps1" Link="scripts\Bootstrap-ScamBaitDeskUpdate.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="UsabilityPolish.cs" />
+  </ItemGroup>
 </Project>
