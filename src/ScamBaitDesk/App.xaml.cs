@@ -39,7 +39,9 @@ public partial class App : Application
             _window = mainWindow;
             WriteStartupLog("MainWindow created; initializing phone workspace.");
             mainWindow.InitializePhoneWorkspace();
-            WriteStartupLog("Phone workspace initialized; activating window.");
+            WriteStartupLog("Phone workspace initialized; initializing channel chooser.");
+            mainWindow.InitializeChannelChooser();
+            WriteStartupLog("Channel chooser initialized; activating window.");
             _window.Activate();
             WriteStartupLog("Window activated successfully.");
         }
