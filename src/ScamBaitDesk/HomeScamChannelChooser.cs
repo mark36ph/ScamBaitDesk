@@ -8,7 +8,7 @@ public sealed partial class MainWindow
 {
     private bool _channelChooserInitialized;
 
-    private void InitializeChannelChooser()
+    internal void InitializeChannelChooser()
     {
         if (_channelChooserInitialized) return;
         _channelChooserInitialized = true;
