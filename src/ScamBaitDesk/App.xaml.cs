@@ -43,7 +43,9 @@ public partial class App : Application
             mainWindow.InitializeChannelChooser();
             WriteStartupLog("Channel chooser initialized; initializing update command bar.");
             mainWindow.InitializeUpdateCommandBar();
-            WriteStartupLog("Update command bar initialized; activating window.");
+            WriteStartupLog("Update command bar initialized; initializing usability polish.");
+            mainWindow.InitializeUsabilityPolish();
+            WriteStartupLog("Usability polish initialized; activating window.");
             _window.Activate();
             WriteStartupLog("Window activated successfully.");
         }
