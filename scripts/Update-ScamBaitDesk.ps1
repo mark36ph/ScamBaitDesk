@@ -83,68 +83,84 @@ $window.Activate()
 $window.BringToFront()
 [System.Windows.Forms.Application]::DoEvents()
 
+$manifestSource = $null
+$originalManifestVersion = $null
 try {
-$repository = Split-Path -Parent $PSScriptRoot
-Set-Location $repository
+    $repository = Split-Path -Parent $PSScriptRoot
+    Set-Location $repository
 
-# When launched from inside the app, give its process time to close and release build outputs.
-Start-Sleep -Seconds 2
+    # When launched from inside the app, give its process time to close and release build outputs.
+    Start-Sleep -Seconds 2
 
-Set-UpdateStage "Downloading the latest version..." 15
-Invoke-UpdateProcess "git.exe" @("pull", "origin", "main") 35 "Downloading the update failed."
+    Set-UpdateStage "Downloading the latest version..." 15
+    Invoke-UpdateProcess "git.exe" @("pull", "origin", "main") 30 "Downloading the update failed."
 
-Set-UpdateStage "Building the application..." 40
-Invoke-UpdateProcess "dotnet.exe" @("build", ".\ScamBaitDesk.sln", "-c", "Debug", "-p:Platform=x64", "-p:PublishProfile=") 75 "The Windows build failed; the installed app was not changed."
+    # Give every build a monotonically increasing MSIX version without committing a
+    # machine-specific version into source control. The source manifest is restored below.
+    $now = Get-Date
+    $monthVersion = [int]$now.ToString("yyMM")
+    $dayHourVersion = [int]$now.ToString("ddHH")
+    $minuteSecondVersion = [int]$now.ToString("mmss")
+    $version = "1.$monthVersion.$dayHourVersion.$minuteSecondVersion"
 
-$manifest = Get-ChildItem ".\src\ScamBaitDesk\bin\x64\Debug" -Recurse -Filter AppxManifest.xml |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-if (-not $manifest) { throw "The generated AppxManifest.xml was not found." }
+    $manifestSource = Join-Path $repository "src\ScamBaitDesk\Package.appxmanifest"
+    [xml]$sourceXml = Get-Content -LiteralPath $manifestSource
+    $originalManifestVersion = $sourceXml.Package.Identity.Version
+    $sourceXml.Package.Identity.Version = $version
+    $sourceXml.Save($manifestSource)
 
-# Loose development packages require a monotonically increasing version.
-# Use local date/time components, each safely below the MSIX 65535 limit.
-$now = Get-Date
-$monthVersion = [int]$now.ToString("yyMM")
-$dayHourVersion = [int]$now.ToString("ddHH")
-$minuteSecondVersion = [int]$now.ToString("mmss")
-$version = "1.$monthVersion.$dayHourVersion.$minuteSecondVersion"
-[xml]$xml = Get-Content -LiteralPath $manifest.FullName
-$xml.Package.Identity.Version = $version
-$xml.Save($manifest.FullName)
+    Set-UpdateStage "Building a self-contained MSIX package..." 40
+    Invoke-UpdateProcess "dotnet.exe" @(
+        "publish", ".\src\ScamBaitDesk\ScamBaitDesk.csproj",
+        "-c", "Debug",
+        "-p:Platform=x64",
+        "-p:PublishProfile=",
+        "-p:GenerateAppxPackageOnBuild=true",
+        "-p:AppxPackageSigningEnabled=false",
+        "-p:WindowsAppSDKSelfContained=true",
+        "-p:SelfContained=true",
+        "-p:PublishTrimmed=false",
+        "-p:PublishReadyToRun=false"
+    ) 75 "The MSIX build failed; the installed app was not changed."
 
-Set-UpdateStage "Installing the update..." 80
-Add-AppxPackage -Register $manifest.FullName -ForceApplicationShutdown
+    # A real MSIX should now exist under AppPackages. Do not fall back to loose
+    # manifest registration because that was the packaging path involved in the crash.
+    $msix = Get-ChildItem ".\src\ScamBaitDesk\bin\x64\Debug" -Recurse -Filter *.msix |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if (-not $msix) {
+        throw "The build completed but did not produce an MSIX package. Check update.log for the publish output."
+    }
 
-Set-UpdateStage "Reopening ScamBait Desk..." 95
-Start-Sleep -Seconds 2
+    "[$(Get-Date -Format o)] MSIX package: $($msix.FullName)" | Add-Content -LiteralPath $logPath
 
-# Get the installed package directly instead of relying on Get-StartApps, which can lag
-# behind a fresh loose-package registration.
-$installedPackage = Get-AppxPackage -Name "ScamBaitDesk" |
-    Sort-Object Version -Descending |
-    Select-Object -First 1
-if (-not $installedPackage) {
-    throw "The update was installed, but Windows did not report the ScamBait Desk package. Open it from Start manually."
-}
+    Set-UpdateStage "Installing the MSIX package..." 85
+    Add-AppxPackage -Path $msix.FullName -ForceApplicationShutdown
 
-$installedManifest = Get-AppxPackageManifest -Package $installedPackage.PackageFullName
-$application = $installedManifest.Package.Applications.Application |
-    Where-Object Id -EQ "ScamBaitDeskApp" |
-    Select-Object -First 1
-if (-not $application) {
-    throw "The update was installed, but the ScamBait Desk application entry could not be found in its package manifest."
-}
+    Set-UpdateStage "Reopening ScamBait Desk..." 95
+    Start-Sleep -Seconds 2
 
-$applicationUserModelId = "$($installedPackage.PackageFamilyName)!$($application.Id)"
-"[$(Get-Date -Format o)] Installed package: $($installedPackage.PackageFullName)`r`n[$(Get-Date -Format o)] Launching AUMID: $applicationUserModelId" | Add-Content -LiteralPath $logPath
+    $installedPackage = Get-AppxPackage -Name "ScamBaitDesk" |
+        Sort-Object Version -Descending |
+        Select-Object -First 1
+    if (-not $installedPackage) {
+        throw "The MSIX was installed, but Windows did not report the Scam Bait Desk package."
+    }
 
-# Launch through the registered Windows AppsFolder identity. This works even when
-# Get-StartApps has not refreshed its cache yet.
-Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$applicationUserModelId"
+    $installedManifest = Get-AppxPackageManifest -Package $installedPackage.PackageFullName
+    $application = $installedManifest.Package.Applications.Application |
+        Where-Object Id -EQ "ScamBaitDeskApp" |
+        Select-Object -First 1
+    if (-not $application) {
+        throw "The MSIX was installed, but the Scam Bait Desk application entry could not be found."
+    }
 
-# Give Explorer a moment to hand activation to the packaged app before closing the updater.
-Start-Sleep -Seconds 2
-Set-UpdateStage "Update complete" 100
+    $applicationUserModelId = "$($installedPackage.PackageFamilyName)!$($application.Id)"
+    "[$(Get-Date -Format o)] Installed package: $($installedPackage.PackageFullName)`r`n[$(Get-Date -Format o)] Launching AUMID: $applicationUserModelId" | Add-Content -LiteralPath $logPath
+    Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$applicationUserModelId"
+
+    Start-Sleep -Seconds 2
+    Set-UpdateStage "Update complete" 100
 }
 catch {
     "[$(Get-Date -Format o)] FAILED: $($_.Exception)" | Add-Content -LiteralPath $logPath
@@ -156,6 +172,16 @@ catch {
     ) | Out-Null
 }
 finally {
+    if ($manifestSource -and $originalManifestVersion) {
+        try {
+            [xml]$restoreXml = Get-Content -LiteralPath $manifestSource
+            $restoreXml.Package.Identity.Version = $originalManifestVersion
+            $restoreXml.Save($manifestSource)
+        }
+        catch {
+            "[$(Get-Date -Format o)] WARNING: Could not restore source manifest version: $($_.Exception)" | Add-Content -LiteralPath $logPath
+        }
+    }
     $window.Close()
     $window.Dispose()
 }
