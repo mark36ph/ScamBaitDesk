@@ -80,39 +80,41 @@ function Invoke-UpdateProcess([string]$fileName, [string[]]$arguments, [int]$max
 
 function Get-SignToolPath {
     $candidates = @()
+
     $command = Get-Command signtool.exe -ErrorAction SilentlyContinue
     if ($command) { $candidates += $command.Source }
 
     $sdkRoots = @()
-    if (${env:ProgramFiles(x86)}) {
-        $sdkRoots += Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10"
-    }
-    if (${env:ProgramFiles}) {
-        $sdkRoots += Join-Path ${env:ProgramFiles} "Windows Kits\10"
-    }
+    if (${env:ProgramFiles(x86)}) { $sdkRoots += Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin" }
+    if (${env:ProgramFiles}) { $sdkRoots += Join-Path ${env:ProgramFiles} "Windows Kits\10\bin" }
 
-    foreach ($sdkRoot in $sdkRoots) {
-        if (Test-Path -LiteralPath $sdkRoot) {
-            $candidates += Get-ChildItem $sdkRoot -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue |
+    foreach ($root in $sdkRoots) {
+        if (Test-Path -LiteralPath $root) {
+            # Prefer x64/x86 SignTool binaries. Do not select an ARM64 binary on an x64 machine.
+            $candidates += Get-ChildItem -LiteralPath $root -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match '\\(x64|x86)\\signtool\.exe$' } |
+                Sort-Object FullName -Descending |
                 Select-Object -ExpandProperty FullName
         }
     }
 
-    # The Windows SDK BuildTools NuGet package can also contain SignTool even when
-    # the full Windows SDK is not installed system-wide.
     $nugetRoot = Join-Path $env:USERPROFILE ".nuget\packages\microsoft.windows.sdk.buildtools"
     if (Test-Path -LiteralPath $nugetRoot) {
-        $candidates += Get-ChildItem $nugetRoot -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue |
+        $candidates += Get-ChildItem -LiteralPath $nugetRoot -Recurse -Filter signtool.exe -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\(x64|x86)\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
             Select-Object -ExpandProperty FullName
     }
 
     $path = $candidates |
         Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
-        Sort-Object -Unique |
         Select-Object -First 1
+
     if (-not $path) {
-        throw "SignTool.exe was not found. Install the Windows 10/11 SDK (Signing Tools), then run the updater again."
+        throw "SignTool.exe was not found. Install the Windows 10/11 SDK, then run the updater again."
     }
+
+    "[$(Get-Date -Format o)] Using SignTool: $path" | Add-Content -LiteralPath $logPath
     return $path
 }
 
