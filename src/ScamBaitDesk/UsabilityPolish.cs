@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Text;
 
 namespace ScamBaitDesk;
 
@@ -18,33 +19,47 @@ public sealed partial class MainWindow
     private void UsabilityPolish_Loaded(object sender, RoutedEventArgs e)
     {
         Loaded -= UsabilityPolish_Loaded;
-
+        TidyShellLayout();
         SimplifyTopBar();
         OrganizeCommandBar();
         SimplifyNavigation();
         SimplifyCollectionTabs();
         SimplifyWorkspaceTabs();
-        TidyLayout();
 
         SearchBox.PlaceholderText = "Search messages or cases…";
         SearchBox.Header = "Find a message or case";
-
         AddNavigationToolTips();
         AddWorkspaceToolTips();
         AddHomeQuickStart();
+    }
+
+    private void TidyShellLayout()
+    {
+        if (Content is not Grid root || root.Children.Count < 2 || root.Children[1] is not Grid layout)
+            return;
+
+        if (layout.ColumnDefinitions.Count >= 3)
+        {
+            layout.ColumnDefinitions[0].Width = new GridLength(220);
+            CollectionColumn.Width = new GridLength(300);
+        }
+
+        var workspaceBorder = layout.Children.OfType<Border>().FirstOrDefault(border => Grid.GetColumn(border) == 2);
+        if (workspaceBorder is not null)
+        {
+            workspaceBorder.Margin = new Thickness(12);
+            workspaceBorder.CornerRadius = new CornerRadius(12);
+        }
+
+        CollectionPane.Padding = new Thickness(10);
+        WorkspaceTabs.Margin = new Thickness(0);
     }
 
     private void SimplifyTopBar()
     {
         foreach (var command in FindCommandBarButtons())
         {
-            var label = command switch
-            {
-                AppBarButton button => button.Label?.ToString(),
-                AppBarToggleButton toggle => toggle.Label?.ToString(),
-                _ => null
-            };
-
+            var label = GetCommandLabel(command);
             var simplified = label switch
             {
                 "Sync inbox" => "Sync",
@@ -56,13 +71,7 @@ public sealed partial class MainWindow
                 "GLOBAL SEND STOP" => "STOP",
                 _ => null
             };
-
-            if (simplified is null) continue;
-            switch (command)
-            {
-                case AppBarButton button: button.Label = simplified; break;
-                case AppBarToggleButton toggle: toggle.Label = simplified; break;
-            }
+            if (simplified is not null) SetCommandLabel(command, simplified);
         }
     }
 
@@ -71,54 +80,61 @@ public sealed partial class MainWindow
         if (Content is not Grid root || root.Children.OfType<CommandBar>().FirstOrDefault() is not CommandBar bar)
             return;
 
-        // Keep the primary bar focused on the actions people use most often.
-        var moveToSecondary = bar.PrimaryCommands
-            .OfType<Control>()
-            .Where(command => command is AppBarButton button &&
-                (button.Label?.ToString() is "Save" or "Export"))
-            .ToList();
-
-        foreach (var command in moveToSecondary)
+        // Keep the primary row focused on the four most common actions.
+        var moveLabels = new[] { "Save", "Export", "Monitor" };
+        foreach (var command in bar.PrimaryCommands.ToList())
         {
+            var label = GetCommandLabel(command);
+            if (label is null || !moveLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
+                continue;
+
             bar.PrimaryCommands.Remove(command);
             bar.SecondaryCommands.Add(command);
         }
 
-        // Monitoring is useful, but it does not need to occupy the main action row.
-        var monitor = bar.PrimaryCommands.OfType<AppBarToggleButton>()
-            .FirstOrDefault(button => string.Equals(button.Label?.ToString(), "Monitor", StringComparison.OrdinalIgnoreCase));
-        if (monitor is not null)
-        {
-            bar.PrimaryCommands.Remove(monitor);
-            bar.SecondaryCommands.Add(monitor);
-        }
-
         bar.DefaultLabelPosition = CommandBarDefaultLabelPosition.Right;
+        bar.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Visible;
+        AddTopBarToolTips(bar);
     }
 
-    private void TidyLayout()
+    private static string? GetCommandLabel(Control command) => command switch
     {
-        if (Content is not Grid root || root.Children.Count < 2 || root.Children[1] is not Grid layout)
-            return;
+        AppBarButton button => button.Label?.ToString(),
+        AppBarToggleButton toggle => toggle.Label?.ToString(),
+        _ => null
+    };
 
-        // Give the main workspace more room while keeping navigation readable.
-        if (layout.ColumnDefinitions.Count >= 3)
+    private static void SetCommandLabel(Control command, string label)
+    {
+        switch (command)
         {
-            layout.ColumnDefinitions[0].Width = new GridLength(195);
-            CollectionColumn.Width = new GridLength(265);
+            case AppBarButton button: button.Label = label; break;
+            case AppBarToggleButton toggle: toggle.Label = label; break;
         }
+    }
 
-        if (layout.Children.OfType<Border>().FirstOrDefault(border => Grid.GetColumn(border) == 2) is Border workspaceBorder)
+    private static void AddTopBarToolTips(CommandBar bar)
+    {
+        foreach (var command in bar.PrimaryCommands.Concat(bar.SecondaryCommands))
         {
-            workspaceBorder.Margin = new Thickness(12);
-            workspaceBorder.CornerRadius = new CornerRadius(10);
+            var label = GetCommandLabel(command);
+            var tip = label switch
+            {
+                "Sync" => "Sync the dedicated bait mailbox.",
+                "Monitor" => "Start or stop periodic inbox checks.",
+                "New case" => "Create a case from the selected message.",
+                "Save" => "Save the current case locally.",
+                "Export" => "Export verified evidence.",
+                "Website" => "Inspect a suspicious website safely.",
+                "STOP" => "Emergency control: disable engagement actions.",
+                "Inbox settings" => "Configure the mailbox connection.",
+                "Connect Gmail OAuth" => "Connect the dedicated Gmail mailbox.",
+                "Test mail connection" => "Test the configured mailbox.",
+                "Manage personas" => "Manage fictional engagement personas.",
+                _ => null
+            };
+            if (tip is not null) ToolTipService.SetToolTip(command, tip);
         }
-
-        if (CollectionPane is not null)
-            CollectionPane.Padding = new Thickness(10);
-
-        if (WorkspaceTabs is not null)
-            WorkspaceTabs.Margin = new Thickness(0);
     }
 
     private void SimplifyNavigation()
@@ -127,7 +143,7 @@ public sealed partial class MainWindow
         {
             ["Home"] = "Start",
             ["Inbox"] = "Messages & cases",
-            ["Case"] = "Review",
+            ["Case"] = "Review case",
             ["Investigate"] = "Investigate",
             ["Engage"] = "Respond safely",
             ["Report"] = "Finish & report",
@@ -136,14 +152,18 @@ public sealed partial class MainWindow
 
         foreach (var item in ShellMenu.Items.OfType<ListViewItem>())
         {
-            if (item.Tag is not string tag || !labels.TryGetValue(tag, out var label))
-                continue;
+            item.Padding = new Thickness(10, 8, 10, 8);
+            item.Margin = new Thickness(0, 2, 0, 2);
+            if (item.Tag is not string tag || !labels.TryGetValue(tag, out var label)) continue;
 
             if (item.Content is StackPanel panel)
             {
                 var text = panel.Children.OfType<TextBlock>().FirstOrDefault();
                 if (text is not null)
+                {
                     text.Text = label;
+                    text.FontSize = 14;
+                }
             }
         }
     }
@@ -163,7 +183,6 @@ public sealed partial class MainWindow
         ReplyTab.Header = "Respond";
         CallsTab.Header = "Phone";
         NotesTab.Header = "Case notes";
-        WorkspaceTabs.SelectedItem = GuideTab;
     }
 
     private IEnumerable<Control> FindCommandBarButtons()
@@ -192,10 +211,8 @@ public sealed partial class MainWindow
         };
 
         foreach (var item in ShellMenu.Items.OfType<ListViewItem>())
-        {
             if (item.Tag is string tag && tips.TryGetValue(tag, out var tip))
                 ToolTipService.SetToolTip(item, tip);
-        }
 
         ToolTipService.SetToolTip(EmergencyStopButton, "Emergency control: disable engagement actions.");
     }
@@ -221,8 +238,8 @@ public sealed partial class MainWindow
             Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
             BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(14)
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16)
         };
 
         var panel = new StackPanel { Spacing = 10 };
@@ -230,12 +247,12 @@ public sealed partial class MainWindow
         {
             Text = "CHOOSE WHAT YOU'RE CHECKING",
             FontSize = 11,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontWeight = FontWeights.SemiBold,
             Opacity = 0.65
         });
         panel.Children.Add(new TextBlock
         {
-            Text = "Pick a scam channel first. ScamBait Desk will take you to the right workspace.",
+            Text = "Start with one channel. The workspace will only show the tools needed for that job.",
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.72
         });
@@ -246,13 +263,12 @@ public sealed partial class MainWindow
         buttons.Children.Add(CreateQuickStartButton("Website", "Website"));
         panel.Children.Add(buttons);
         card.Child = panel;
-
         stack.Children.Insert(Math.Min(3, stack.Children.Count), card);
     }
 
     private Button CreateQuickStartButton(string label, string destination)
     {
-        var button = new Button { Content = label, Tag = destination, MinWidth = 100 };
+        var button = new Button { Content = label, Tag = destination, MinWidth = 104 };
         button.Click += NavigateTo_Click;
         return button;
     }
