@@ -6,7 +6,7 @@ namespace ScamBaitDesk.Services;
 
 public sealed class AppUpdateService
 {
-    public const int CurrentBuild = 45;
+    public const int CurrentBuild = 46;
     private const string BuildNumberApiUrl = "https://api.github.com/repos/mark36ph/ScamBaitDesk/contents/build-number.txt?ref=main";
     private const string BuildNumberUrl = "https://raw.githubusercontent.com/mark36ph/ScamBaitDesk/main/build-number.txt";
     public sealed record UpdateCheckResult(bool IsAvailable, int CurrentBuild, int LatestBuild, string Message);
@@ -37,7 +37,7 @@ public sealed class AppUpdateService
         }
         if (!int.TryParse(text, out var latestBuild)) throw new InvalidOperationException("GitHub returned an invalid build number.");
         var isAvailable = latestBuild > CurrentBuild;
-        return new UpdateCheckResult(latestBuild > CurrentBuild, CurrentBuild, latestBuild,
+        return new UpdateCheckResult(isAvailable, CurrentBuild, latestBuild,
             isAvailable ? "A newer build is available." : "ScamBait Desk is up to date.");
     }
 
