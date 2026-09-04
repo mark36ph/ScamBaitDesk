@@ -33,3 +33,372 @@
         </CommandBar>
 
         <Grid Grid.Row="1" ColumnSpacing="0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition x:Name="CollectionColumn" Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" Padding="10,16">
+             <Grid RowSpacing="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+              <StackPanel Spacing="2" Margin="10,0,0,8"><TextBlock Text="GUIDED WORKFLOW" FontSize="11" FontWeight="SemiBold" Opacity="0.6"/><TextBlock Text="Follow the steps in order" FontSize="12" Opacity="0.55"/></StackPanel>
+              <ListView x:Name="ShellMenu" Grid.Row="1" SelectionChanged="ShellMenu_SelectionChanged" SelectedIndex="0">
+               <ListViewItem Tag="Home"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE80F;"/><TextBlock Text="1  Start here"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Inbox"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE715;"/><TextBlock Text="2  Inbox &amp; cases"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Case"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE8A5;"/><TextBlock Text="3  Review case"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Investigate"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE721;"/><TextBlock Text="4  Investigate"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Engage"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE724;"/><TextBlock Text="5  Engage safely"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Report"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE7C3;"/><TextBlock Text="6  Report &amp; export"/></StackPanel></ListViewItem>
+               <ListViewItem Tag="Website" Margin="0,8,0,0"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE721;"/><TextBlock Text="Website check" FontWeight="SemiBold"/></StackPanel></ListViewItem>
+              </ListView>
+              <Border Grid.Row="2" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="3"><TextBlock Text="ACTIVE CASE" FontSize="10" FontWeight="SemiBold" Opacity="0.55"/><TextBlock x:Name="NavCaseTitle" Text="No case selected" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="NavCaseStatus" Text="Choose a message or case" FontSize="12" Opacity="0.65" TextWrapping="Wrap"/></StackPanel></Border>
+              <Button Grid.Row="3" Click="SettingsNav_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE713;"/><TextBlock Text="Settings"/></StackPanel></Button>
+             </Grid>
+            </Border>
+            <Grid x:Name="CollectionPane" Grid.Column="1" Padding="14" RowSpacing="10" Background="{ThemeResource LayerFillColorAltBrush}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBox x:Name="SearchBox" Header="Search" PlaceholderText="Messages and cases" TextChanged="SearchBox_TextChanged"/>
+                <TabView x:Name="CollectionTabs" Grid.Row="1">
+                  <TabViewItem x:Name="InboxCollectionTab" Header="Messages" IsClosable="False">
+                   <ListView x:Name="MessageList" SelectionChanged="MessageList_SelectionChanged">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:InboxMessage">
+                            <StackPanel Padding="4" Spacing="3">
+                                <TextBlock Text="{x:Bind Subject}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{x:Bind Sender}" Opacity="0.72" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{x:Bind DirectionDisplay}" FontSize="12" Opacity="0.6"/>
+                                <TextBlock Text="{x:Bind ReceivedDisplay}" FontSize="12" Opacity="0.6"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                   </ListView>
+                  </TabViewItem>
+                  <TabViewItem x:Name="CasesCollectionTab" Header="Saved cases" IsClosable="False">
+                   <ListView x:Name="CaseList" SelectionChanged="CaseList_SelectionChanged">
+                    <ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord">
+                     <StackPanel Padding="4" Spacing="3"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{x:Bind Summary}" FontSize="12" TextWrapping="Wrap" Opacity="0.65"/></StackPanel>
+                    </DataTemplate></ListView.ItemTemplate>
+                   </ListView>
+                  </TabViewItem>
+                  <TabViewItem x:Name="DashboardCollectionTab" Header="Overview" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="10" Spacing="8">
+                      <ItemsControl x:Name="DashboardList"><ItemsControl.ItemTemplate><DataTemplate x:DataType="local:DashboardMetric"><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}"/><TextBlock Grid.Column="1" Text="{x:Bind Value}" FontWeight="SemiBold"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                      <TextBlock Text="Pending actions" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                      <ListView x:Name="PendingList" MaxHeight="300"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseRecord"><StackPanel Margin="0,4"><TextBlock Text="{x:Bind Title}" FontWeight="SemiBold"/><TextBlock Text="{x:Bind Summary}" FontSize="12" Opacity="0.7"/></StackPanel></DataTemplate></ListView.ItemTemplate></ListView>
+                      <TextBlock Text="Recent activity" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                      <ListView x:Name="RecentActivityList" MaxHeight="260"><ListView.ItemTemplate><DataTemplate x:DataType="local:ActivityItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" FontSize="12" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
+                  </TabViewItem>
+                  <TabViewItem x:Name="ActionsCollectionTab" Header="Case priorities" IsClosable="False"><ListView x:Name="NextActionList"><ListView.ItemTemplate><DataTemplate x:DataType="local:NextActionItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="6"/></DataTemplate></ListView.ItemTemplate></ListView></TabViewItem>
+                </TabView>
+            </Grid>
+
+            <Border Grid.Column="2" Margin="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12"><TabView x:Name="WorkspaceTabs">
+                <TabViewItem x:Name="GuideTab" Header="Guide" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="22" Spacing="18" MaxWidth="1000" HorizontalAlignment="Left">
+                        <StackPanel Spacing="4"><TextBlock Text="Start here" Style="{ThemeResource TitleTextBlockStyle}" FontSize="30"/><TextBlock Text="ScamBait Desk keeps every action manual. Follow this path for each suspicious conversation." TextWrapping="Wrap" Opacity="0.7"/></StackPanel>
+                        <InfoBar x:Name="NextStepBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Your next step"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button x:Name="NextStepButton" Content="Open inbox and cases" Tag="Inbox" Click="NavigateTo_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Check a website" Tag="Website" Click="NavigateTo_Click"/></StackPanel>
+                        <Grid ColumnSpacing="12" RowSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="1 · Collect" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Configure the dedicated bait mailbox, sync it, and select a suspicious message." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Open inbox" Tag="Inbox" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            <Border Grid.Column="1" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="2 · Save" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Review the local risk signals, then create a case to preserve the conversation." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Review case" Tag="Case" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            <Border Grid.Column="2" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="3 · Investigate" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Check the website, email headers, indicators, checklist, and evidence without opening hostile content." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Investigate" Tag="Investigate" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            <Border Grid.Row="1" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="4 · Plan" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Choose a safe objective, reply budget, deadline, fictional persona, and question." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Open engagement plan" Tag="Engage" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="5 · Engage" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Draft and privacy-check one manual reply. Nothing sends until you confirm twice." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Write a reply" Tag="Engage" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="6 · Finish" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="Generate a redacted report, export verified evidence, and stop engagement when complete." TextWrapping="Wrap" Opacity="0.72"/><Button Content="Report and export" Tag="Report" Click="NavigateTo_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                        </Grid>
+                        <Expander Header="Safety rules"><Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><TextBlock Text="Use only a dedicated bait identity. Never share real personal, financial, login, or location information. Do not open attachments or target links, impersonate authorities, threaten anyone, send malware, or continue after the safety objective is complete." TextWrapping="Wrap"/></Border></Expander>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="ReviewTab" Header="Message review" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="14">
+                        <TextBlock x:Name="SubjectText" Text="Select a message" Style="{ThemeResource TitleTextBlockStyle}"/>
+                        <TextBlock x:Name="SenderText" Opacity="0.7"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ComboBox x:Name="StatusBox" Header="Case status" Width="210" SelectionChanged="StatusBox_SelectionChanged">
+                                <x:String>New</x:String><x:String>Investigating</x:String><x:String>Awaiting verification</x:String><x:String>Reported</x:String><x:String>Closed</x:String>
+                            </ComboBox>
+                            <Button Content="Check sender domain reputation" Click="Reputation_Click" VerticalAlignment="Bottom"/>
+                            <Button x:Name="StopEngagementButton" Content="Stop engagement permanently" Click="StopEngagement_Click" VerticalAlignment="Bottom"/>
+                        </StackPanel>
+                        <InfoBar x:Name="RiskBar" IsOpen="False" IsClosable="False"/>
+                        <TextBlock Text="Risk signals" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ItemsControl x:Name="SignalList">
+                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="local:RiskSignal">
+                                <StackPanel Margin="0,4"><TextBlock Text="{x:Bind Label}" FontWeight="SemiBold"/><TextBlock Text="{x:Bind Detail}" TextWrapping="Wrap" Opacity="0.72"/></StackPanel>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Redacted message" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBox x:Name="MessageBody" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="220"/>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="ReplyTab" Header="Write reply" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Manual engagement mode" Message="Use only a dedicated bait account and fictional persona. Never send secrets, real personal details, attachments, tracking links, threats, or claims of authority."/>
+                        <TextBlock x:Name="RecipientText" Text="Select a message to lock the recipient" FontWeight="SemiBold"/>
+                        <InfoBar x:Name="StoppedBar" IsOpen="False" IsClosable="False" Severity="Error" Title="Engagement stopped"/>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="PersonaBox" Header="Fictional persona" DisplayMemberPath="Display" SelectionChanged="PersonaBox_SelectionChanged"/>
+                            <ComboBox x:Name="TemplateBox" Grid.Column="1" Header="Reply template" DisplayMemberPath="Display"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"><Button Content="Apply" Click="ApplyTemplate_Click"/><Button Content="Add" Click="AddTemplate_Click"/><Button Content="Manage" Click="ManageTemplate_Click"/></StackPanel>
+                        </Grid>
+                        <Expander Header="Reply Coach · local suggestions" IsExpanded="True"><Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><StackPanel Spacing="8">
+                            <TextBlock Text="Choose an objective. Suggestions use only this saved case and never send automatically." TextWrapping="Wrap" Opacity="0.72"/>
+                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="ReplyCoachBox" DisplayMemberPath="Display" SelectionChanged="ReplyCoachBox_SelectionChanged"/><Button Grid.Column="1" Content="Use in draft" Click="ApplyReplyCoach_Click"/></Grid>
+                            <TextBlock x:Name="ReplyCoachGuidance" Text="Open a case to generate coached reply options." TextWrapping="Wrap"/>
+                        </StackPanel></Border></Expander>
+                        <TextBox x:Name="DraftBox" Header="Plain-text reply" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="240" TextChanged="DraftBox_TextChanged"/>
+                        <InfoBar x:Name="PrivacyBar" IsOpen="True" IsClosable="False" Title="Privacy guard"/>
+                        <ItemsControl x:Name="PrivacyFindings">
+                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="local:PrivacyFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <InfoBar x:Name="ConsistencyBar" IsOpen="True" IsClosable="False" Title="Persona consistency"/>
+                        <ItemsControl x:Name="ConsistencyFindings"><ItemsControl.ItemTemplate><DataTemplate x:DataType="local:PrivacyFinding"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Copy draft" Click="CopyDraft_Click"/>
+                            <Button Content="Suggest from case locally" Click="SuggestLocalReply_Click"/>
+                            <Button x:Name="SendButton" Content="Review and send manually" Click="SendReply_Click" IsEnabled="False"/>
+                        </StackPanel>
+                        <TextBlock Text="Outbound audit log" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,10,0,0"/>
+                        <ListView x:Name="OutboundList" MaxHeight="180">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="local:OutboundMessageRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="CallsTab" Header="Call log" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Manual dedicated-number calls only" Message="Numbers come only from the active case. This opens one number in your configured Windows VoIP app. No caller-ID spoofing, autodialling, covert recording, or automatic calling is available."/>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10">
+                            <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Spacing="3"><TextBlock Text="Voice protection" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock Text="Processes local microphone audio and sends it only to the selected virtual-audio output. Select that virtual cable's matching recording endpoint in your VoIP app." TextWrapping="Wrap" Opacity="0.7"/></StackPanel><Border x:Name="VoiceProtectionStatusBadge" Grid.Column="1" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}" CornerRadius="12" Padding="10,5" VerticalAlignment="Center"><TextBlock x:Name="VoiceProtectionStatusText" Text="PROTECTION OFF" FontWeight="SemiBold" FontSize="11"/></Border></Grid>
+                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><ComboBox x:Name="VoiceProfileBox" Header="Profile" SelectedIndex="0" SelectionChanged="VoiceProtectionChanged"><x:String>Neutral</x:String><x:String>Deeper</x:String><x:String>Higher</x:String><x:String>Robotic</x:String></ComboBox><Slider x:Name="VoiceStrengthSlider" Grid.Column="1" Header="Effect strength" Minimum="0" Maximum="100" Value="50" ValueChanged="VoiceStrengthSlider_ValueChanged"/></Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="12"><ToggleSwitch x:Name="NoiseSuppressionToggle" Header="Noise suppression" IsOn="True" Toggled="VoiceProtectionChanged"/><ToggleSwitch x:Name="VoiceProtectionToggle" Header="Voice protection active" Toggled="VoiceProtectionChanged"/></StackPanel>
+                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Spacing="4"><TextBlock Text="Microphone test level"/><ProgressBar x:Name="MicrophoneLevelBar" Minimum="0" Maximum="100" Value="0"/></StackPanel><Button x:Name="MicrophoneTestButton" Grid.Column="1" Content="Test microphone" Click="MicrophoneTest_Click" VerticalAlignment="Bottom"/><Button x:Name="EmergencyMuteButton" Grid.Column="2" Content="EMERGENCY MUTE" Click="EmergencyMute_Click" VerticalAlignment="Bottom"/></Grid>
+                            <TextBlock x:Name="MicrophoneTestStatus" Text="Microphone test is off. No audio is recorded or sent." TextWrapping="Wrap" Opacity="0.7"/>
+                        </StackPanel></Border>
+                        <ComboBox x:Name="CallNumberBox" Header="Phone number extracted from this case"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Open in default VoIP app" Click="OpenVoip_Click"/><Button Content="Log call outcome" Click="LogCallOutcome_Click"/></StackPanel>
+                        <CheckBox x:Name="RecordingConsentBox" Content="Recording disclosure/consent and local-law requirements have been confirmed"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Recording not configured" Message="A supported VoIP provider and jurisdiction-specific recording policy must be configured before audio recording can be enabled."/>
+                        <ComboBox x:Name="CallOutcomeBox" Header="Outcome" SelectedIndex="0"><x:String>Connected</x:String><x:String>No answer</x:String><x:String>Voicemail</x:String><x:String>Disconnected</x:String><x:String>Declined</x:String><x:String>Other</x:String></ComboBox>
+                        <TextBox x:Name="CallNotesBox" Header="Redacted call notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120"/>
+                        <TextBlock Text="Case call audit log" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="CallLogList" MaxHeight="240"><ListView.ItemTemplate><DataTemplate x:DataType="local:CallLogRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="NotesTab" Header="Notes &amp; tags" IsClosable="False">
+                    <StackPanel Padding="16" Spacing="12">
+                        <TextBlock Text="Case organisation" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="PriorityBox" Header="Priority" SelectedIndex="1"><x:String>Low</x:String><x:String>Normal</x:String><x:String>High</x:String><x:String>Urgent</x:String></ComboBox><TextBox x:Name="TagsBox" Grid.Column="1" Header="Tags" PlaceholderText="payment, impersonation, follow-up"/><Button Grid.Column="2" Content="Save details" Click="SaveCaseDetails_Click" VerticalAlignment="Bottom"/></Grid>
+                        <TextBlock Text="Record observations, verification steps, and reporting references. Do not store passwords or security codes." TextWrapping="Wrap"/>
+                        <TextBox x:Name="NotesBox" Header="Case notes" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="300"/>
+                    </StackPanel>
+                </TabViewItem>
+                <TabViewItem x:Name="TimelineTab" Header="History" IsClosable="False">
+                    <StackPanel Padding="16" Spacing="12">
+                        <TextBlock Text="Case activity" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="TimelineList">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="local:CaseEvent"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </TabViewItem>
+                <TabViewItem x:Name="WebsiteTab" Header="Website safety" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
+                        <TextBlock Text="Website safety check" Style="{ThemeResource TitleTextBlockStyle}"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Start with the local check" Message="Check address locally examines only the text you enter. The website is contacted only if you separately approve Scan live page content; VirusTotal is contacted only if you approve its search."/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Live scan is optional" Message="A live scan makes one limited request to the page, so its operator can see your network IP and request time. JavaScript never runs, forms are never submitted, private networks are blocked, and page content is not saved."/>
+                        <TextBox x:Name="WebsiteAddressBox" Header="Website address or domain" PlaceholderText="https://example.com or hxxps://example[.]com" FontFamily="Consolas"/>
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Check address locally" Click="CheckWebsite_Click"/><Button x:Name="LiveWebsiteScanButton" Content="Scan live page content" Click="ScanWebsiteContent_Click" Style="{StaticResource AccentButtonStyle}"/><ProgressRing x:Name="WebsiteScanProgress" Width="24" Height="24" IsActive="False" Visibility="Collapsed"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Use first URL from active case" Click="LoadCaseWebsite_Click"/><Button Content="Search existing VirusTotal report" Click="CheckWebsiteReputation_Click"/></StackPanel>
+                        </StackPanel>
+                        <InfoBar x:Name="WebsiteResultBar" IsOpen="False" IsClosable="True" Title="Website check"/>
+                        <TextBlock x:Name="WebsiteScanSummary" Text="Run a check to see a severity breakdown and detailed guidance." TextWrapping="Wrap" FontWeight="SemiBold"/>
+                        <TextBlock Text="Warnings and guidance" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="WebsiteFindingList" MaxHeight="520"><ListView.ItemTemplate><DataTemplate x:DataType="local:WebsiteFinding">
+                            <Border Style="{StaticResource WorkspaceCard}" Margin="0,5"><StackPanel Spacing="6">
+                                <TextBlock Text="{x:Bind Label}" FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind SeverityDisplay}" FontSize="12" FontWeight="SemiBold" Opacity="0.72"/>
+                                <TextBlock Text="{x:Bind Detail}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind EvidenceDisplay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" Opacity="0.78"/>
+                                <TextBlock Text="{x:Bind RecommendationDisplay}" TextWrapping="Wrap" Opacity="0.82"/>
+                            </StackPanel></Border>
+                        </DataTemplate></ListView.ItemTemplate></ListView>
+                        <Border Style="{StaticResource WorkspaceCard}"><TextBlock Text="A low score is not proof that a website is legitimate. Newly created, compromised, or carefully disguised sites may have no obvious URL warning. Never enter passwords, codes, payment information, or real identity details based on this result." TextWrapping="Wrap" Opacity="0.72"/></Border>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="HeadersTab" Header="Email headers" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar x:Name="ForensicsBar" IsOpen="False" IsClosable="False"/>
+                        <TextBlock Text="Identity and authentication" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ItemsControl x:Name="ForensicsList">
+                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="local:ForensicFinding">
+                                <Grid Margin="0,5" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions><TextBlock Text="{x:Bind Label}" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{x:Bind Value}" TextWrapping="Wrap"/><TextBlock Grid.Column="2" Text="{x:Bind Assessment}" Opacity="0.7"/></Grid>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Warnings" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ItemsControl x:Name="ForensicsWarnings"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,4" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <Expander Header="Raw headers"><TextBox x:Name="RawHeadersBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Consolas" MinHeight="220"/></Expander>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="IndicatorsTab" Header="Extracted clues" IsClosable="False">
+                    <Grid Padding="16" RowSpacing="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Inert evidence" Message="Values are extracted locally. URLs are never opened directly; reputation checks require approval."/>
+                        <ListView x:Name="IndicatorList" Grid.Row="1">
+                            <ListView.ItemTemplate><DataTemplate x:DataType="local:IndicatorRecord">
+                                <Grid Padding="4" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="125"/><ColumnDefinition Width="*"/><ColumnDefinition Width="155"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind TypeDisplay}" FontWeight="SemiBold"/>
+                                    <StackPanel Grid.Column="1"><TextBlock Text="{x:Bind Value}" TextWrapping="Wrap" FontFamily="Consolas"/><TextBlock Text="{x:Bind OccurrenceDisplay}" FontSize="12" Opacity="0.65"/></StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind PrimarySource}" TextTrimming="CharacterEllipsis" Opacity="0.7"/>
+                                    <Button Grid.Column="3" Content="Copy" Click="CopyIndicator_Click"/>
+                                    <Button Grid.Column="4" Content="Check reputation" Click="LookupIndicator_Click" IsEnabled="{x:Bind SupportsLookup}"/>
+                                </Grid>
+                            </DataTemplate></ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </TabViewItem>
+                <TabViewItem x:Name="ReportTab" Header="Report &amp; evidence" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Reporting assistant" Message="Creates a local redacted draft only. It does not upload evidence or submit a report."/>
+                        <ComboBox x:Name="ReportDestinationBox" Header="Reporting destination" SelectedIndex="0">
+                            <x:String>National fraud reporting service</x:String>
+                            <x:String>Email provider abuse team</x:String>
+                            <x:String>Bank or payment provider</x:String>
+                            <x:String>Domain registrar or hosting provider</x:String>
+                            <x:String>Police or law-enforcement reference</x:String>
+                        </ComboBox>
+                        <Button Content="Generate redacted report" Click="GenerateReport_Click" HorizontalAlignment="Left"/>
+                        <TextBox x:Name="ReportBox" Header="Review before submitting" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="340"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Copy report" Click="CopyReport_Click"/>
+                            <Button Content="Export evidence ZIP" Click="ExportEvidence_Click"/>
+                            <Button Content="Verify evidence ZIP" Click="VerifyEvidence_Click"/>
+                        </StackPanel>
+                        <InfoBar x:Name="EvidenceVerificationBar" IsOpen="False" IsClosable="True" Title="Evidence verification"/>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="ToolsTab" Header="Checklist &amp; tools" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Attachment quarantine" Message="Only attachment names, declared types, sizes, and content IDs are shown. The app provides no open, preview, save, or execute action."/>
+                        <TextBlock Text="Inert attachment metadata" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="AttachmentList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:AttachmentRecord"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Possible duplicate cases" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <ListView x:Name="DuplicateList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:DuplicateCaseMatch"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Manual follow-up reminders" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add reminder" Click="AddReminder_Click"/><Button Content="Remind me in 24 hours" Click="QuickReminder_Click"/><Button Content="Mark selected complete" Click="CompleteReminder_Click"/></StackPanel>
+                        <ListView x:Name="ReminderList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:FollowUpReminder"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Investigation checklist" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Toggle selected" Click="ToggleChecklist_Click"/><Button Content="Reset checklist" Click="ResetChecklist_Click"/></StackPanel>
+                        <ListView x:Name="ChecklistList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:CaseChecklistItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Safe indicator copy" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="Defangs case URLs and domains locally so they cannot be clicked accidentally." Opacity="0.7" TextWrapping="Wrap"/>
+                        <Button Content="Generate defanged indicators" Click="DefangIndicators_Click" HorizontalAlignment="Left"/>
+                        <TextBox x:Name="DefangedIndicatorsBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100"/>
+                        <TextBlock Text="Engagement session timer" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button x:Name="StartSessionButton" Content="Start session" Click="StartSession_Click"/><Button x:Name="StopSessionButton" Content="Stop and log" Click="StopSession_Click" IsEnabled="False"/><TextBlock x:Name="SessionTimerText" Text="00:00:00" VerticalAlignment="Center" FontFamily="Consolas"/></StackPanel>
+                        <Button Content="Export lightweight case summary" Click="ExportSummary_Click" HorizontalAlignment="Left"/>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="PlanTab" Header="Plan" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="Controlled plan" Message="Objectives and questions organise manual work. Nothing here sends messages or performs external actions."/>
+                        <TextBlock Text="Conversation playbook" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <InfoBar x:Name="RecommendedPlaybookBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Recommended playbook" Message="Open a case to detect a likely scam pattern."/>
+                        <Button Content="Select recommended playbook" Click="SelectRecommendedPlaybook_Click" HorizontalAlignment="Left"/>
+                        <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="PlaybookBox" DisplayMemberPath="Display" SelectionChanged="PlaybookBox_SelectionChanged"/><Button Grid.Column="1" Content="Apply playbook" Click="ApplyPlaybook_Click"/></Grid>
+                        <ListView x:Name="PlaybookStepList" MaxHeight="170"><ListView.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="8"><TextBlock Text="Case briefing" Style="{ThemeResource SubtitleTextBlockStyle}"/><TextBlock x:Name="CaseBriefingText" Text="Open a case to generate a briefing." TextWrapping="Wrap"/><Button Content="Copy briefing" Click="CopyBriefing_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="EngagementStageBox" Header="Conversation stage" SelectedIndex="0"><x:String>Initial review</x:String><x:String>Verification questions</x:String><x:String>Claims under review</x:String><x:String>Awaiting response</x:String><x:String>Ready to report</x:String><x:String>Ended</x:String></ComboBox>
+                            <TextBox x:Name="EngagementObjectiveBox" Grid.Column="1" Header="Current objective"/>
+                        </Grid>
+                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <NumberBox x:Name="MessageBudgetBox" Header="Total reply budget" Minimum="1" Maximum="50" Value="10"/>
+                            <DatePicker x:Name="EngagementDeadlinePicker" Grid.Column="1" Header="Engagement deadline"/>
+                            <Button Grid.Column="2" Content="Save plan" Click="SaveEngagementPlan_Click" VerticalAlignment="Bottom"/>
+                        </Grid>
+                        <TextBlock Text="Safe question bank" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="QuestionBox" DisplayMemberPath="Display"/><Button Grid.Column="1" Content="Add to reply draft" Click="ApplyQuestion_Click"/></Grid>
+                        <Expander Header="Question Planner · unanswered and not previously asked" IsExpanded="True"><Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><StackPanel Spacing="8">
+                            <ListView x:Name="PlannedQuestionList" MaxHeight="210"><ListView.ItemTemplate><DataTemplate x:DataType="local:PlannedQuestion"><StackPanel Margin="0,4" Spacing="3"><TextBlock Text="{x:Bind Display}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Reason}" Opacity="0.7" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListView.ItemTemplate></ListView>
+                            <Button Content="Add selected planned question to draft" Click="ApplyPlannedQuestion_Click" HorizontalAlignment="Left"/>
+                        </StackPanel></Border></Expander>
+                        <Expander Header="Conversation Memory · extracted locally" IsExpanded="True"><Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><StackPanel Spacing="8">
+                            <TextBlock Text="Claims, amounts, deadlines, references, organisations, and sender identities remembered from this case. Review extracted values before relying on them." TextWrapping="Wrap" Opacity="0.72"/>
+                            <ListView x:Name="ConversationMemoryList" MaxHeight="260"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConversationMemoryItem"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        </StackPanel></Border></Expander>
+                        <TextBlock Text="Sender claim ledger" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Record sender claim" Click="AddClaim_Click"/><Button Content="Mark selected contradicted" Click="ContradictClaim_Click"/></StackPanel>
+                        <ListView x:Name="ClaimList" MaxHeight="260"><ListView.ItemTemplate><DataTemplate x:DataType="local:SenderClaim"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Passive indicator intake" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="No prospecting" Message="Add only indicators from reports or messages you are authorised to investigate. This never searches for addresses or starts contact."/>
+                        <Button Content="Add sourced indicator" Click="AddSourcedIndicator_Click" HorizontalAlignment="Left"/>
+                        <ListView x:Name="SourcedIndicatorList" MaxHeight="180"><ListView.ItemTemplate><DataTemplate x:DataType="local:ProvenanceIndicator"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="SettingsTab" Header="Settings" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="24" Spacing="18" MaxWidth="1120" HorizontalAlignment="Stretch">
+                        <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3"><TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontSize="30"/><TextBlock Text="Mail, monitoring, integrations, and application maintenance" Opacity="0.65"/></StackPanel>
+                            <Border Grid.Column="1" Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}" CornerRadius="14" Padding="12,6" VerticalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE73E;" FontSize="13"/><TextBlock Text="FREE LOCAL MODE" FontSize="11" FontWeight="SemiBold"/></StackPanel></Border>
+                        </Grid>
+                        <InfoBar IsOpen="True" IsClosable="False" Severity="Success" Title="Local features ready" Message="Core casework, analysis, templates, checklists, exports, reminders, VPN checks, and call logging require no paid service."/>
+                        <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="ACCOUNT &amp; INBOX" FontSize="11" FontWeight="SemiBold" Opacity="0.6" Margin="4,0,0,-6"/>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE715;"/><TextBlock Text="Dedicated mail account" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Credentials stay in Windows Credential Locker." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <InfoBar x:Name="GoogleSetupStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Google setup not checked"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Configure inbox" Click="Settings_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Connect Google" Click="ConnectGmail_Click"/><Button Content="Test" Click="TestConnection_Click"/></StackPanel>
+                                    <Expander Header="Set up Gmail OAuth step by step">
+                                        <StackPanel Spacing="12" Margin="0,10,0,0">
+                                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="What you need" Message="A free Google Cloud project and one Desktop app OAuth client ID. ScamBait Desk does not need an API key or client secret."/>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Create or select a Google Cloud project" FontWeight="SemiBold"/><TextBlock Text="Use a project dedicated to this bait mailbox." TextWrapping="Wrap" Opacity="0.68"/><Button Content="Open Google Cloud Console" Tag="https://console.cloud.google.com/projectselector2/home/dashboard" Click="OpenGoogleSetupPage_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Enable the Gmail API" FontWeight="SemiBold"/><TextBlock Text="Select the project, open Gmail API, and choose Enable." TextWrapping="Wrap" Opacity="0.68"/><Button Content="Open Gmail API page" Tag="https://console.cloud.google.com/apis/library/gmail.googleapis.com" Click="OpenGoogleSetupPage_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Configure Google Auth Platform" FontWeight="SemiBold"/><TextBlock Text="Add an app name and support email. For personal Gmail choose External; while testing, add the dedicated bait account as a test user under Audience." TextWrapping="Wrap" Opacity="0.68"/><Button Content="Open Google Auth Platform" Tag="https://console.cloud.google.com/auth/overview" Click="OpenGoogleSetupPage_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Create a Desktop app OAuth client" FontWeight="SemiBold"/><TextBlock Text="Open Clients, choose Create client, select Desktop app, name it ScamBait Desk, and download the JSON file." TextWrapping="Wrap" Opacity="0.68"/><Button Content="Open OAuth clients" Tag="https://console.cloud.google.com/auth/clients" Click="OpenGoogleSetupPage_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="5" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Save it in ScamBait Desk" FontWeight="SemiBold"/><TextBlock Text="Choose Configure inbox, select Gmail OAuth, enter the bait Gmail address, then paste the Desktop client ID or import credentials.json." TextWrapping="Wrap" Opacity="0.68"/><Button Content="Configure inbox now" Click="Settings_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+                                            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Background="{ThemeResource AccentFillColorDefaultBrush}" Width="28" Height="28" CornerRadius="14"><TextBlock Text="6" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/></Border><StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="Connect and test" FontWeight="SemiBold"/><TextBlock Text="Choose Connect Google, approve access in your normal browser, return here, and run Test." TextWrapping="Wrap" Opacity="0.68"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Connect Google" Click="ConnectGmail_Click"/><Button Content="Test connection" Click="TestConnection_Click"/></StackPanel></StackPanel></Grid>
+                                            <Button Content="Open Google's installed-app documentation" Tag="https://developers.google.com/identity/protocols/oauth2/native-app" Click="OpenGoogleSetupPage_Click" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Expander>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE895;"/><TextBlock Text="Inbox monitoring" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <InfoBar x:Name="MonitorBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Monitoring off" Message="Checks every 60 seconds while the app is open."/>
+                                    <AppBarToggleButton x:Name="SettingsMonitorButton" Icon="World" Label="Monitor inbox" Click="Monitor_Click" HorizontalAlignment="Left"/>
+                                </StackPanel></Border>
+                                <Expander Header="Connection diagnostics">
+                                    <Border Style="{StaticResource WorkspaceCard}" Margin="0,8,0,0"><ListView x:Name="DiagnosticList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConnectionDiagnostic"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListView.ItemTemplate></ListView></Border>
+                                </Expander>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="16">
+                                <TextBlock Text="INTEGRATIONS &amp; MAINTENANCE" FontSize="11" FontWeight="SemiBold" Opacity="0.6" Margin="4,0,0,-6"/>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE774;"/><TextBlock Text="FastVPN" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Open FastVPN, then confirm whether Windows detects an active tunnel." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <InfoBar x:Name="VpnStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Status not checked"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Open FastVPN" Click="OpenFastVpn_Click" Style="{StaticResource AccentButtonStyle}"/><Button Content="Check status" Click="CheckVpn_Click"/></StackPanel>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE895;"/><TextBlock Text="Application updates" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel>
+                                    <TextBlock Text="Compare build numbers first; the app closes only when an update is available." TextWrapping="Wrap" Opacity="0.68"/>
+                                    <InfoBar x:Name="UpdateStatusBar" IsOpen="True" IsClosable="False" Severity="Informational" Title="Not checked" Message="Check to compare the installed and latest builds."/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="CheckUpdateButton" Content="Check for updates" Click="CheckUpdate_Click"/><Button x:Name="UpdateButton" Content="Update and restart" Click="UpdateApp_Click" Style="{StaticResource AccentButtonStyle}"/></StackPanel>
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="10"><StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE8B7;"/><TextBlock Text="Case library backup" Style="{ThemeResource SubtitleTextBlockStyle}"/></StackPanel><TextBlock Text="Export every local case or merge a previous backup. Newer local copies are kept." TextWrapping="Wrap" Opacity="0.68"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Export cases" Click="ExportCases_Click"/><Button Content="Import cases" Click="ImportCases_Click"/></StackPanel></StackPanel></Border>
+                                <Border Style="{StaticResource WorkspaceCard}"><StackPanel Spacing="9"><TextBlock Text="Protected calling number and audio output" FontWeight="SemiBold"/><TextBlock Text="Store only a secondary number that you legitimately control. Choose a detected virtual-audio playback endpoint; then manually select its matching recording endpoint as the microphone in your VoIP app. No driver is installed or changed by ScamBait Desk." TextWrapping="Wrap" Opacity="0.68"/><TextBox x:Name="ProtectedNumberBox" Header="Your controlled secondary number" PlaceholderText="+1 555 010 1234"/><CheckBox x:Name="ProtectedNumberOwnershipCheck" Content="I confirm I legitimately control this number"/><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="VirtualMicrophoneOutputBox" Header="Virtual microphone output" DisplayMemberPath="Display"/><Button Grid.Column="1" Content="Refresh devices" Click="RefreshVirtualOutputs_Click" VerticalAlignment="Bottom"/></Grid><TextBlock x:Name="VirtualMicrophoneOutputStatus" Text="Install and configure a virtual audio cable yourself if no compatible output is listed." TextWrapping="Wrap" Opacity="0.65"/><Button Content="Save protected-number configuration" Click="SaveVoiceProtectionSettings_Click" HorizontalAlignment="Left"/></StackPanel></Border>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+                <TabViewItem x:Name="InsightTab" Header="Case summary" IsClosable="False">
+                    <ScrollViewer><StackPanel Padding="16" Spacing="12">
+                        <TextBlock x:Name="ConversationOverview" Text="Open a case to build a local summary." Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Extracted requests and claims" FontWeight="SemiBold"/>
+                        <ListView x:Name="ConversationFactList" MaxHeight="220"><ListView.ItemTemplate><DataTemplate x:DataType="local:ConversationFact"><TextBlock Text="{x:Bind Display}" TextWrapping="Wrap" Margin="0,4"/></DataTemplate></ListView.ItemTemplate></ListView>
+                        <TextBlock Text="Potential contradictions" FontWeight="SemiBold"/>
+                        <ItemsControl x:Name="ContradictionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <TextBlock Text="Unanswered verification questions" FontWeight="SemiBold"/>
+                        <ItemsControl x:Name="UnansweredQuestionList"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel></ScrollViewer>
+                </TabViewItem>
+            </TabView></Border>
+        </Grid>
+    </Grid>
+</Window>
