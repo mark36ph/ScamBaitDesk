@@ -48,10 +48,12 @@ public sealed partial class MainWindow : Window
     private VoiceProtectionSettings _voiceSettings = VoiceProtectionSettings.Default;
     private bool _microphoneTestActive;
     private bool _voiceOutputActive;
+    private bool _isInitializing = true;
 
     public MainWindow()
     {
         InitializeComponent();
+        _isInitializing = false;
         SetWindowIcon();
         Activated += (_, _) => SetWindowIcon();
         NavigateShell("Home");
@@ -143,12 +145,14 @@ public sealed partial class MainWindow : Window
 
     private void VoiceProtectionChanged(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         _voiceSettings = ReadVoiceProtectionSettings();
         RefreshVoiceProtectionStatus();
     }
 
     private void VoiceStrengthSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_isInitializing) return;
         _voiceSettings = ReadVoiceProtectionSettings();
         RefreshVoiceProtectionStatus();
     }
