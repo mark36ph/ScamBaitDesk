@@ -251,11 +251,11 @@ public sealed partial class MainWindow
                 workflowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             workflowGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            workflowGrid.Children.Add(CreateInvestigationCard("EMAIL", "Messages, headers and links", "Review a suspicious message, preserve the case and inspect sender evidence.", "Open email investigation", "Inbox", "&#xE715;"));
-            var phone = CreateInvestigationCard("PHONE", "Calls and transcripts", "Analyse a caller number and transcript for social-engineering signals without placing a call.", "Open phone investigation", "Engage", "&#xE717;");
+            workflowGrid.Children.Add(CreateInvestigationCard("EMAIL", "Messages, headers and links", "Review a suspicious message, preserve the case and inspect sender evidence.", "Open email investigation", "Inbox", "\uE715"));
+            var phone = CreateInvestigationCard("PHONE", "Calls and transcripts", "Analyse a caller number and transcript for social-engineering signals without placing a call.", "Open phone investigation", "Engage", "\uE717");
             Grid.SetColumn(phone, 1);
             workflowGrid.Children.Add(phone);
-            var website = CreateInvestigationCard("WEBSITE", "URLs and page content", "Check a URL locally first, then optionally scan limited live page content for suspicious indicators.", "Open website investigation", "Website", "&#xE774;");
+            var website = CreateInvestigationCard("WEBSITE", "URLs and page content", "Check a URL locally first, then optionally scan limited live page content for suspicious indicators.", "Open website investigation", "Website", "\uE774");
             Grid.SetColumn(website, 2);
             workflowGrid.Children.Add(website);
 
