@@ -25,6 +25,9 @@
                     <Border Background="{ThemeResource SystemFillColorCautionBackgroundBrush}" CornerRadius="12" Padding="10,3">
                         <TextBlock Text="CONTROLLED ENGAGEMENT · MANUAL SEND" FontSize="11" FontWeight="SemiBold"/>
                     </Border>
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="8,3">
+                        <TextBlock Text="BUILD 46" FontSize="11" FontWeight="SemiBold" Opacity="0.8"/>
+                    </Border>
                 </StackPanel>
             </CommandBar.Content>
         </CommandBar>
